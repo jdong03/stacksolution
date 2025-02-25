@@ -7,7 +7,9 @@ func evaluateHand(flop []Card, playerHand []Card, turn Card, river Card) string 
 
 func checkPair(flop []Card, playerHand []Card, turn Card, river Card) (bool, int) {
 	cards := append(playerHand, append(flop, turn, river)...)
-
+	sort.Slice(cards, func(i, j int) bool {
+		return cards[i].Rank > cards[j].Rank
+	})
 	for i := 0; i < len(cards); i++ {
 		count := 0
 		for j := 0; j < len(cards); j++ {
@@ -85,45 +87,49 @@ func checkTrips(flop []Card, playerHand []Card, turn Card, river Card) (bool, in
 	return false, 0
 }
 
-func checkStraight(flop []Card, playerHand []Card, turn Card, river Card) (bool, int) {
+func checkStraight(flop []Card, playerHand []Card, turn Card, river Card) (bool, []Card) {
 	cards := append(playerHand, append(flop, turn, river)...)
 	sort.Slice(cards, func(i, j int) bool {
 		return cards[i].Rank > cards[j].Rank
 	})
 
-	nonPair := []int{}
+	nonPair := []Card{}
 	for i := 0; i < len(cards); i++ {
 		if i == 0 || cards[i].Rank != cards[i-1].Rank {
-			nonPair = append(nonPair, cards[i].Rank)
+			nonPair = append(nonPair, cards[i])
 			if cards[i].Rank == 14 {
-				nonPair = append(nonPair, 1)
+				nonPair = append(nonPair, Card{1, cards[i].Suit})
 			}
 		}
 	}
 
 	sort.Slice(nonPair, func(i, j int) bool {
-		return nonPair[i] > nonPair[j]
+		return nonPair[i].Rank > nonPair[j].Rank
 	})
 
-	count := 1
-	highStraight := 0
+	var straightCards []Card
+	var count = 1
 	for i := 0; i < len(nonPair)-1; i++ {
-		if nonPair[i] == nonPair[i+1]+1 {
+		if len(straightCards) == 0 {
+			straightCards = append(straightCards, nonPair[i])
+		}
+		if nonPair[i].Rank == nonPair[i+1].Rank+1 {
 			count++
-			if count == 5 {
-				highStraight = nonPair[i]
-				return true, highStraight
-			}
+			straightCards = append(straightCards, nonPair[i+1])
 		} else {
+			straightCards = []Card{}
 			count = 1
+		}
+		if count >= 5 {
+			return true, straightCards
 		}
 
 	}
-	return false, 0
+	return false, nil
 
 }
 
-func checkFlush(flop []Card, playerHand []Card, turn Card, river Card) (bool, string, int) {
+func checkFlush(flop []Card, playerHand []Card, turn Card, river Card) (bool, string, []Card) {
 	cards := append(playerHand, append(flop, turn, river)...)
 
 	spades := 0
@@ -156,30 +162,77 @@ func checkFlush(flop []Card, playerHand []Card, turn Card, river Card) (bool, st
 	} else if clubs >= 5 {
 		flushSuit = "Clubs"
 	} else {
-		return false, "", 0
+		return false, "", nil
 	}
 
-	flushCards := []int{}
+	flushCards := []Card{}
 	for i := 0; i < len(cards); i++ {
 		if cards[i].Suit == flushSuit {
-			flushCards = append(flushCards, cards[i].Rank)
+			flushCards = append(flushCards, cards[i])
 		}
 	}
 
 	sort.Slice(flushCards, func(i, j int) bool {
-		return flushCards[i] > flushCards[j]
+		return flushCards[i].Rank > flushCards[j].Rank
 	})
 
-	return true, flushSuit, flushCards[0]
+	return true, flushSuit, flushCards
 
 }
 
-func checkBoat(flop []Card, playerHand []Card, turn Card, river Card) bool {
+func checkBoat(flop []Card, playerHand []Card, turn Card, river Card) (bool, int, int) {
+	//return bool, trip, pair
+	trips := []int{}
+	usedTrips := map[int]bool{}
+	pairs := []int{}
+	usedPairs := map[int]bool{}
+	cards := append(playerHand, append(flop, turn, river)...)
+	sort.Slice(cards, func(i, j int) bool {
+		return cards[i].Rank > cards[j].Rank
+	})
+
+	for i := 0; i < len(cards); i++ {
+		count := 0
+		for j := 0; j < len(cards); j++ {
+			if cards[i].Rank == cards[j].Rank && !usedTrips[cards[i].Rank] && !usedPairs[cards[i].Rank] {
+				count++
+			}
+		}
+		if count == 3 {
+			trips = append(trips, cards[i].Rank)
+			usedTrips[cards[i].Rank] = true
+		}
+		if count == 2 {
+			pairs = append(pairs, cards[i].Rank)
+			usedPairs[cards[i].Rank] = true
+		}
+	}
+
+	if len(trips) > 1 {
+		return true, trips[0], trips[1]
+	}
+	if len(trips) == 1 && len(pairs) > 0 {
+		return true, trips[0], pairs[0]
+	} else {
+		return false, 0, 0
+	}
 
 }
 
-func checkQuads(flop []Card, playerHand []Card, turn Card, river Card) bool {
-
+func checkQuads(flop []Card, playerHand []Card, turn Card, river Card) (bool, int) {
+	cards := append(playerHand, append(flop, turn, river)...)
+	for i := 0; i < len(cards); i++ {
+		count := 0
+		for j := 0; j < len(cards); j++ {
+			if cards[i].Rank == cards[j].Rank {
+				count++
+			}
+		}
+		if count == 4 {
+			return true, cards[i].Rank
+		}
+	}
+	return false, 0
 }
 
 func checkSF(flop []Card, playerHand []Card, turn Card, river Card) bool {

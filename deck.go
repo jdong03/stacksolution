@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 )
@@ -67,19 +66,5 @@ func (d *Deck) Deal() []Card {
 }
 
 func playHand() {
-	deck := createDeck()
-	deck.Shuffle()
-
-	player := Player{
-		Hand:  deck.Deal(),
-		Stack: 1000,
-	}
-
-	villain := Player{
-		Hand:  deck.Deal(),
-		Stack: 1000,
-	}
-
-	flop, turn, river := deck.dealBoard()
 
 }
