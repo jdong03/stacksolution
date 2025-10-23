@@ -2,7 +2,11 @@ package game
 
 import "sort"
 
+// TODO: Game should contain logic for running game (call deal, control betting actions, manage pot, stacks, etc.)
+// Hand evaluation logic should be in hand_evaluation.go
+
 func evaluateHand(flop []Card, playerHand []Card, turn Card, river Card) string {
+	return ""
 }
 
 func checkPair(flop []Card, playerHand []Card, turn Card, river Card) (bool, int) {
@@ -236,9 +240,11 @@ func checkQuads(flop []Card, playerHand []Card, turn Card, river Card) (bool, in
 }
 
 func checkSF(flop []Card, playerHand []Card, turn Card, river Card) bool {
-
+	// TODO: implement
+	return false
 }
 
 func checkRoyal(flop []Card, playerHand []Card, turn Card, river Card) bool {
-
+	// TODO: implement
+	return false
 }
