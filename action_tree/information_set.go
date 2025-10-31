@@ -7,7 +7,7 @@ import (
 )
 
 /*
-InfoSet represents a single information set in the game tree.
+InformationSet represents a single information set in the game tree.
 
 An information set groups together all concrete game states that look identical
 to the acting player - for example, the same public board, same action history,
