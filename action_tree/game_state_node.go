@@ -39,7 +39,7 @@ func GetStartingNode(player1Cards []game.Card, player2Cards []game.Card) *GameSt
 		Player2Cards:            player2Cards,
 		Player1ReachProbability: 1.0,
 		Player2ReachProbability: 1.0,
-		ActivePlayer:            Player.Player1,
+		ActivePlayer:            Player1, // Player 1 always acts first
 		ActionOptions:           []EnumActionType{Check, Raise, Fold},
 	}
 	return node

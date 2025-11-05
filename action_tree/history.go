@@ -26,7 +26,7 @@ func NewHistory() *History {
 		TurnActions:  nil,
 		RiverCard:    game.Card{},
 		RiverActions: nil,
-		ActivePlayer: nil,
+		ActivePlayer: Player1,
 	}
 }
 
