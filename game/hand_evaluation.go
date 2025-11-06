@@ -2,6 +2,7 @@ package game
 
 import "sort"
 
+// TODO: Imlement EvaluateHand using helper functions below. Evaluate hand should return a bool and a list of the played cards
 func EvaluateHand(flop []Card, playerHand []Card, turn Card, river Card) string {
 	return ""
 }
