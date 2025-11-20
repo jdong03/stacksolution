@@ -41,3 +41,13 @@ func (h *History) Clone() *History {
 	c.RiverActions = slices.Clone(h.RiverActions)
 	return &c
 }
+
+func AddToHistory(history *History, action Action) *History {
+	// TODO: Update History based on action and return new history
+	return nil
+}
+
+func GetActionOptionsFromHistory(history *History) []EnumActionType {
+	// TODO: Determine legal actions based on history
+	return nil
+}
