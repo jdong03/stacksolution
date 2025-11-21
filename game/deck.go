@@ -54,3 +54,26 @@ func (d *Deck) DealHand() []Card {
 	d.Cards = d.Cards[2:]
 	return hand
 }
+
+/*
+CardDifference returns a new slice containing the cards in 'deck' that are
+not present
+*/
+func CardDifference(deck []Card, removeLists ...[]Card) []Card {
+	// Build a lookup set of cards to remove
+	rm := make(map[Card]struct{})
+	for _, list := range removeLists {
+		for _, c := range list {
+			rm[c] = struct{}{}
+		}
+	}
+
+	// Build output slice
+	out := make([]Card, 0, len(deck))
+	for _, c := range deck {
+		if _, exists := rm[c]; !exists {
+			out = append(out, c)
+		}
+	}
+	return out
+}

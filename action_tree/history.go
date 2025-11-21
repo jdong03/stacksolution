@@ -10,9 +10,9 @@ import (
 type History struct {
 	FlopCards    []game.Card
 	FlopActions  []Action
-	TurnCard     game.Card
+	TurnCard     []game.Card
 	TurnActions  []Action
-	RiverCard    game.Card
+	RiverCard    []game.Card
 	RiverActions []Action
 	ActivePlayer Player
 }
@@ -22,11 +22,11 @@ func NewHistory() *History {
 	return &History{
 		FlopCards:    nil,
 		FlopActions:  nil,
-		TurnCard:     game.Card{},
+		TurnCard:     nil,
 		TurnActions:  nil,
-		RiverCard:    game.Card{},
+		RiverCard:    nil,
 		RiverActions: nil,
-		ActivePlayer: Player1,
+		ActivePlayer: Player1, // Player 1 always acts first
 	}
 }
 
