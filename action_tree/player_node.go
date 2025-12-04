@@ -10,40 +10,71 @@ func (p *PlayerNode) GetGameState() GameState {
 }
 
 /*
-NewPlayerNode creates a new PlayerNode from a parent node, XXX
+NewPlayerNode creates a new PlayerNode from a parent node (either PlayerNode or ChanceNode)
 */
-func NewPlayerNode(parentGameStateNode *GameStateNode, action Action, actionProbability float64, history *History) *GameStateNode {
-	newNode := &GameStateNode{
-		History:                 *newHistory,
-		Player1Cards:            parentGameStateNode.Player1Cards,
-		Player2Cards:            parentGameStateNode.Player2Cards,
-		Player1StackSize:        parentGameStateNode.Player1StackSize,
-		Player2StackSize:        parentGameStateNode.Player2StackSize,
-		Player1ReachProbability: parentGameStateNode.Player1ReachProbability,
-		Player2ReachProbability: parentGameStateNode.Player2ReachProbability,
-		ActivePlayer:            newHistory.ActivePlayer,
-		ActionOptions:           GetActionOptionsFromHistory(newHistory),
-	}
+func NewPlayerNode(parentGameStateNode GameStateNode, action Action, actionProbability float64, newHistory *History) *PlayerNode {
+	// Extract parent's game state
+	parentGameState := parentGameStateNode.GetGameState()
 
-	switch action := action.(type) {
-	case PlayerAction:
-		// Calculate Reach Probabilities, Stack Sizes, Pot
-		// If the previous active player was Player 1, update Player 1's reach probability
-		switch parentGameStateNode.ActivePlayer {
-		case Player1:
-			newNode.Player1ReachProbability *= actionProbability
-			newNode.Player1StackSize -= action.Amount
-			newNode.Pot += action.Amount
-		case Player2: // If the previous active player was Player 2, update Player 2's reach probability
-			newNode.Player2ReachProbability *= actionProbability
-			newNode.Player2StackSize -= action.Amount
-			newNode.Pot += action.Amount
+	// Initialize with parent's values
+	player1StackSize := parentGameState.Player1StackSize
+	player2StackSize := parentGameState.Player2StackSize
+	player1ReachProbability := parentGameState.Player1ReachProbability
+	player2ReachProbability := parentGameState.Player2ReachProbability
+
+	// Handle different parent types and action types
+	switch parent := parentGameStateNode.(type) {
+	case *PlayerNode:
+		// Parent is PlayerNode, action should be PlayerAction
+		playerAction, ok := action.(PlayerAction)
+		if !ok {
+			panic("Action from PlayerNode parent must be PlayerAction")
 		}
-	case ChanceAction:
-		//TODO
+
+		// Update based on which player took the action
+		if parentGameState.History.ActivePlayer == Player1 {
+			player1StackSize -= playerAction.Amount
+			player1ReachProbability *= actionProbability
+		} else if parentGameState.History.ActivePlayer == Player2 {
+			player2StackSize -= playerAction.Amount
+			player2ReachProbability *= actionProbability
+		}
+
+	case *ChanceNode:
+		// Parent is ChanceNode, action should be ChanceAction
+		chanceAction, ok := action.(ChanceAction)
+		if !ok {
+			panic("Action from ChanceNode parent must be ChanceAction")
+		}
+
+		// TODO: Handle chance action effects
+		// For example, if ChanceAction deals cards, you might need to update something
+		// For now, just pass through the values
+		_ = chanceAction // Use the variable to avoid compiler warning
+		_ = parent // Use the variable to avoid compiler warning
+
+	default:
+		panic("Parent of PlayerNode must be either PlayerNode or ChanceNode")
 	}
 
-	//TODO: define chance player and chance nodes subsequently
+	// Create the new GameState
+	gameState := GameState{
+		History:                 *newHistory,
+		Player1Cards:            parentGameState.Player1Cards,
+		Player2Cards:            parentGameState.Player2Cards,
+		Player1StackSize:        player1StackSize,
+		Player2StackSize:        player2StackSize,
+		Player1ReachProbability: player1ReachProbability,
+		Player2ReachProbability: player2ReachProbability,
+	}
 
-	return newNode
+	// TODO: Determine action options based on the new history
+	// Placeholder for now - you'll need to implement GetActionOptionsFromHistory
+	actionOptions := []EnumActionType{Check, Raise, Fold}
+	// actionOptions := GetActionOptionsFromHistory(newHistory)
+
+	return &PlayerNode{
+		GameState:     gameState,
+		ActionOptions: actionOptions,
+	}
 }

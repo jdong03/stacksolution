@@ -14,7 +14,7 @@ func (p *ChanceNode) GetGameState() GameState {
 /*
 NewChanceNode creates a new ChanceNode from a parent node and new game state
 */
-func NewChanceNode(parentGameStateNode PlayerNode, action PlayerAction, actionProbability float64, newHistory History) *ChanceNode {
+func NewChanceNode(parentGameStateNode PlayerNode, action PlayerAction, actionProbability float64, newHistory *History) *ChanceNode {
 	player1StackSize := parentGameStateNode.Player1StackSize
 	player2StackSize := parentGameStateNode.Player2StackSize
 	player1ReachProbability := parentGameStateNode.Player1ReachProbability
@@ -30,7 +30,7 @@ func NewChanceNode(parentGameStateNode PlayerNode, action PlayerAction, actionPr
 	}
 
 	gameState := GameState{
-		History:                 newHistory,
+		History:                 *newHistory,
 		Player1Cards:            parentGameStateNode.Player1Cards,
 		Player2Cards:            parentGameStateNode.Player2Cards,
 		Player1StackSize:        player1StackSize,

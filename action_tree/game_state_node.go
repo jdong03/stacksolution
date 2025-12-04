@@ -54,10 +54,28 @@ func NewGameStateNode(parentGameStateNode GameStateNode, action Action, actionPr
 		return NewPlayerNode(parentGameStateNode, action, actionProbability, newHistory)
 	} else if newHistory.ActivePlayer == Chance {
 		// Return Chance Node
-		return NewChanceNode(parentGameStateNode, action, actionProbability, newHistory)
+		// ChanceNode expects a PlayerNode as parent and PlayerAction
+		parentPlayerNode, ok := parentGameStateNode.(*PlayerNode)
+		if !ok {
+			panic("Parent of ChanceNode must be a PlayerNode")
+		}
+		playerAction, ok := action.(PlayerAction)
+		if !ok {
+			panic("Action for ChanceNode must be a PlayerAction")
+		}
+		return NewChanceNode(*parentPlayerNode, playerAction, actionProbability, newHistory)
 	} else {
 		// Return Leaf Node
-		return NewLeafNode(parentGameStateNode, action, actionProbability, newHistory)
+		// LeafNode expects a PlayerNode as parent and PlayerAction
+		parentPlayerNode, ok := parentGameStateNode.(*PlayerNode)
+		if !ok {
+			panic("Parent of LeafNode must be a PlayerNode")
+		}
+		playerAction, ok := action.(PlayerAction)
+		if !ok {
+			panic("Action for LeafNode must be a PlayerAction")
+		}
+		return NewLeafNode(*parentPlayerNode, playerAction, actionProbability, newHistory)
 	}
 } /*
 if player 1 closing action -> chance

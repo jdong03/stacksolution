@@ -12,7 +12,7 @@ func (p *LeafNode) GetGameState() GameState {
 /*
 NewLeafNode creates a new LeafNode from a parent node, action, and action probability
 */
-func NewLeafNode(parentGameStateNode PlayerNode, action PlayerAction, actionProbability float64, newHistory History) *LeafNode {
+func NewLeafNode(parentGameStateNode PlayerNode, action PlayerAction, actionProbability float64, newHistory *History) *LeafNode {
 	player1StackSize := parentGameStateNode.Player1StackSize
 	player2StackSize := parentGameStateNode.Player2StackSize
 	player1ReachProbability := parentGameStateNode.Player1ReachProbability
@@ -28,7 +28,7 @@ func NewLeafNode(parentGameStateNode PlayerNode, action PlayerAction, actionProb
 	}
 
 	gameState := GameState{
-		History:                 newHistory,
+		History:                 *newHistory,
 		Player1Cards:            parentGameStateNode.Player1Cards,
 		Player2Cards:            parentGameStateNode.Player2Cards,
 		Player1StackSize:        player1StackSize,

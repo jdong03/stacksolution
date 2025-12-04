@@ -117,14 +117,20 @@ func AddToCumulativeRegrets(infoSet *InformationSet,
 	actionUtilities []float64, // u₁(σ_{I→a}) for each legal action a at I
 	nodeUtility float64, // u₁(σ) at I
 ) {
-	if gameStateNode.ActivePlayer == Player1 {
-		counterFactualReachProbability := gameStateNode.Player2ReachProbability
+	// Dereference the pointer and extract the game state from the node
+	gameState := (*gameStateNode).GetGameState()
+
+	// Get active player from the history
+	activePlayer := gameState.History.ActivePlayer
+
+	if activePlayer == Player1 {
+		counterFactualReachProbability := gameState.Player2ReachProbability
 		for i := range actionUtilities {
 			// r[a] += π^{-1}(I) * (u₁(σ_{I→a}) - u₁(σ))
 			infoSet.RegretSum[i] += counterFactualReachProbability * (actionUtilities[i] - nodeUtility)
 		}
-	} else if gameStateNode.ActivePlayer == Player2 {
-		counterFactualReachProbability := gameStateNode.Player1ReachProbability
+	} else if activePlayer == Player2 {
+		counterFactualReachProbability := gameState.Player1ReachProbability
 		for i := range actionUtilities {
 			// Utilities are stored as u₁(·). For zero-sum, u₂ = −u₁, hence sign flip:
 			// r[a] += π^{-2}(I) * (u₂(σ_{I→a}) - u₂(σ)) = π^{-2}(I) * (u₁(σ) - u₁(σ_{I→a}))
