@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math/rand"
 )
 
@@ -8,6 +9,17 @@ import (
 type Card struct {
 	Rank int
 	Suit string
+}
+
+// String returns a canonical string representation of the card (e.g., "14s" for Ace of Spades)
+func (c Card) String() string {
+	suitChar := map[string]string{
+		"Spades":   "s",
+		"Hearts":   "h",
+		"Diamonds": "d",
+		"Clubs":    "c",
+	}
+	return fmt.Sprintf("%d%s", c.Rank, suitChar[c.Suit])
 }
 
 // Deck represents a standard deck of 52 playing cards.

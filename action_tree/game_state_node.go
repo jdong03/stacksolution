@@ -38,7 +38,7 @@ func GetStartingNode(player1Cards []game.Card, player2Cards []game.Card) GameSta
 			Player1ReachProbability: 1.0,
 			Player2ReachProbability: 1.0,
 		},
-		ActionOptions: []EnumActionType{Check, Raise, Fold},
+		ActionOptions: []EnumActionType{Check, Raise},
 	}
 	return node
 }

@@ -1,6 +1,10 @@
 package action_tree
 
-import "github.com/jdong03/stacksolution/game"
+import (
+	"fmt"
+
+	"github.com/jdong03/stacksolution/game"
+)
 
 type EnumActionType int
 
@@ -26,4 +30,18 @@ type PlayerAction struct {
 
 type ChanceAction struct {
 	RevealedCards []game.Card
+}
+
+// String returns a string representation of the PlayerAction (e.g., "x", "c", "r10.00", "f")
+func (a PlayerAction) String() string {
+	actionNames := map[EnumActionType]string{
+		Check: "x",
+		Call:  "c",
+		Raise: "r",
+		Fold:  "f",
+	}
+	if a.ActionType == Raise {
+		return fmt.Sprintf("%s%.2f", actionNames[a.ActionType], a.Amount)
+	}
+	return actionNames[a.ActionType]
 }

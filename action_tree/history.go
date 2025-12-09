@@ -49,9 +49,10 @@ func (h *History) Clone() *History {
 }
 
 /*
-AddToHistory update History based on action and return new history.
+AddToHistory returns new history based off current action, doesn't mutate history.
 
-Assumes Player1 is always first to act.
+Assumes Player1 is always first to act, and as this is a post-flop solver,
+Player1 will always be first to act on each street.
 AddToHistory doesn't check for validity of the action whether that is bet sizing or action type
 Responsibility of client to pass in valid actions.
 */

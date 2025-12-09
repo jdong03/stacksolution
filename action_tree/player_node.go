@@ -23,7 +23,7 @@ func NewPlayerNode(parentGameStateNode GameStateNode, action Action, actionProba
 	player2ReachProbability := parentGameState.Player2ReachProbability
 
 	// Handle different parent types and action types
-	switch parent := parentGameStateNode.(type) {
+	switch parentGameStateNode.(type) {
 	case *PlayerNode:
 		// Parent is PlayerNode, action should be PlayerAction
 		playerAction, ok := action.(PlayerAction)
@@ -32,26 +32,23 @@ func NewPlayerNode(parentGameStateNode GameStateNode, action Action, actionProba
 		}
 
 		// Update based on which player took the action
-		if parentGameState.History.ActivePlayer == Player1 {
+		switch parentGameState.History.ActivePlayer {
+		case Player1:
 			player1StackSize -= playerAction.Amount
 			player1ReachProbability *= actionProbability
-		} else if parentGameState.History.ActivePlayer == Player2 {
+		case Player2:
 			player2StackSize -= playerAction.Amount
 			player2ReachProbability *= actionProbability
 		}
 
 	case *ChanceNode:
 		// Parent is ChanceNode, action should be ChanceAction
-		chanceAction, ok := action.(ChanceAction)
+		_, ok := action.(ChanceAction)
 		if !ok {
 			panic("Action from ChanceNode parent must be ChanceAction")
 		}
 
-		// TODO: Handle chance action effects
-		// For example, if ChanceAction deals cards, you might need to update something
-		// For now, just pass through the values
-		_ = chanceAction // Use the variable to avoid compiler warning
-		_ = parent // Use the variable to avoid compiler warning
+	// Question: Do we need to handle anything if parent is ChanceNode? Idts as newHistory contains the action already.
 
 	default:
 		panic("Parent of PlayerNode must be either PlayerNode or ChanceNode")
@@ -68,10 +65,7 @@ func NewPlayerNode(parentGameStateNode GameStateNode, action Action, actionProba
 		Player2ReachProbability: player2ReachProbability,
 	}
 
-	// TODO: Determine action options based on the new history
-	// Placeholder for now - you'll need to implement GetActionOptionsFromHistory
-	actionOptions := []EnumActionType{Check, Raise, Fold}
-	// actionOptions := GetActionOptionsFromHistory(newHistory)
+	actionOptions := GetActionOptionsFromHistory(newHistory)
 
 	return &PlayerNode{
 		GameState:     gameState,
