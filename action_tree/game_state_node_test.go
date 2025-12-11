@@ -522,10 +522,16 @@ func TestNewGameStateNode_CompleteGameFlow(t *testing.T) {
 		t.Errorf("Expected Leaf (game over) at showdown, got %v", gameState.History.ActivePlayer)
 	}
 
-	// Verify final stack sizes (both players bet 20 total)
+	// Verify final stack sizes
+	// Both players bet 20 total over the game. Pot = 10 (initial) + 20 (turn) + 20 (river) = 50
+	// P1 has AA vs P2's KK with board Qh,Jh,Th,Jc,Td
+	// P1 wins with AA JJ vs KK JJ, so P1 gets the pot
 	originalGameState := startNode.GetGameState()
-	expectedP1Stack := originalGameState.Player1StackSize - 20
-	expectedP2Stack := originalGameState.Player2StackSize - 20
+	initialPot := originalGameState.PotSize // 10.0
+	totalBetPerPlayer := 20.0               // Each player bets 10 on turn + 10 on river
+	finalPot := initialPot + (2 * totalBetPerPlayer)
+	expectedP1Stack := originalGameState.Player1StackSize - totalBetPerPlayer + finalPot // Winner gets pot
+	expectedP2Stack := originalGameState.Player2StackSize - totalBetPerPlayer            // Loser keeps remaining
 
 	if gameState.Player1StackSize != expectedP1Stack {
 		t.Errorf("Expected Player1 final stack %f, got %f", expectedP1Stack, gameState.Player1StackSize)
@@ -592,12 +598,16 @@ func TestNewGameStateNode_RiverCheckByPlayer2(t *testing.T) {
 		t.Errorf("Expected Leaf after river check by Player2, got %v", gameState.History.ActivePlayer)
 	}
 
-	// Stacks should be unchanged
-	if gameState.Player1StackSize != 100.0 {
-		t.Errorf("Expected Player1 stack 100.0, got %f", gameState.Player1StackSize)
+	// P1 has As,Ac (pocket aces) vs P2's Ks,Kc (pocket kings)
+	// Board: Ah,Kh,Qh,Jc,Td - P1 has trip aces, P2 has trip kings
+	// P1 wins and gets the pot (20.0)
+	expectedP1Stack := 100.0 + 20.0 // Winner gets pot
+	expectedP2Stack := 100.0        // Loser keeps remaining (no bets in check-check)
+	if gameState.Player1StackSize != expectedP1Stack {
+		t.Errorf("Expected Player1 stack %f, got %f", expectedP1Stack, gameState.Player1StackSize)
 	}
-	if gameState.Player2StackSize != 100.0 {
-		t.Errorf("Expected Player2 stack 100.0, got %f", gameState.Player2StackSize)
+	if gameState.Player2StackSize != expectedP2Stack {
+		t.Errorf("Expected Player2 stack %f, got %f", expectedP2Stack, gameState.Player2StackSize)
 	}
 
 	// Player2's reach probability should be updated

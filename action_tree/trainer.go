@@ -1,6 +1,7 @@
 package action_tree
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -193,9 +194,9 @@ func (trainer *VanillaCFRTrainer) Train(
 		}
 
 		// Log iteration progress (uncomment when needed)
-		// fmt.Printf("Iteration %d complete.\n", i)
-		// exploitability := trainer.BestResponseUtility.TotalDeviation(board, handCombosP1, handCombosP2)
-		// fmt.Printf("Strategy Exploitability: %.6f\n\n", exploitability)
+		fmt.Printf("Iteration %d complete.\n", i)
+		exploitability := trainer.BestResponseUtility.TotalDeviation(board, handCombosP1, handCombosP2)
+		fmt.Printf("Strategy Exploitability: %.6f\n\n", exploitability)
 	}
 
 	// Return player 1 utility of last iteration
@@ -281,30 +282,144 @@ func (trainer *VanillaCFRTrainer) CalculateNodeUtility(node GameStateNode) float
 }
 
 // calculateLeafUtility returns the utility for Player 1 at a terminal node.
+// Utility is measured as P1's profit/loss from this hand.
 func (trainer *VanillaCFRTrainer) calculateLeafUtility(node *LeafNode) float64 {
-	// TODO: Implement terminal payoff calculation
-	// - If someone folded: winner gets the pot
-	// - If showdown: compare hands, winner gets pot
-	// Return positive if P1 wins, negative if P1 loses
-	return 0.0
+	gameState := node.GetGameState()
+
+	// Player 1's utility is their stack size change
+	p1Utility := gameState.Player1StackSize - trainer.Player1InitialStackSize
+
+	if node.Winner == Player1 {
+		return p1Utility
+	}
+	return -p1Utility
 }
 
 // calculateChanceUtility averages utility over all possible chance outcomes.
 func (trainer *VanillaCFRTrainer) calculateChanceUtility(node *ChanceNode) float64 {
-	// TODO: Implement chance node utility
-	// Iterate over all possible cards that could be dealt,
-	// create child nodes for each, and average the utilities weighted by probability.
-	return 0.0
+	availableCards := node.AvailableCards
+
+	// Each card has equal probability
+	actionProbability := 1.0 / float64(len(availableCards))
+
+	var nodeUtility float64
+
+	// Iterate over each possible card that could be dealt
+	for _, card := range availableCards {
+		// Create a ChanceAction for dealing this card
+		chanceAction := ChanceAction{
+			RevealedCards: []game.Card{card},
+		}
+
+		// Create child node
+		childNode := NewGameStateNode(node, chanceAction, actionProbability)
+
+		// Recursively calculate utility
+		childUtility := trainer.CalculateNodeUtility(childNode)
+
+		// Average the utilities (weight by probability)
+		nodeUtility += actionProbability * childUtility
+	}
+
+	return nodeUtility
 }
 
 // calculatePlayerUtility computes utility at a player decision node using CFR.
 func (trainer *VanillaCFRTrainer) calculatePlayerUtility(node *PlayerNode) float64 {
-	// TODO: Implement CFR player node logic:
-	// 1. Get information set for this node
-	// 2. Get current strategy from information set
-	// 3. For each action: create child node, recurse to get action utility
-	// 4. Calculate node utility as weighted sum of action utilities
-	// 5. If this is the updating player, update regrets in the information set
-	// 6. Return node utility
-	return 0.0
+	gameState := node.GetGameState()
+	activePlayer := gameState.History.ActivePlayer
+
+	// Get active player's reach probability
+	var activePlayerReachProbability float64
+	if activePlayer == Player1 {
+		activePlayerReachProbability = gameState.Player1ReachProbability
+	} else {
+		activePlayerReachProbability = gameState.Player2ReachProbability
+	}
+
+	// Get information set and current strategy
+	infoSet := trainer.GetInformationSet(node)
+	strategy := GetStrategy(infoSet)
+
+	// Add to strategy sum only for the updating player
+	if activePlayer == trainer.UpdatingPlayer {
+		AddToStrategySum(infoSet, strategy, activePlayerReachProbability)
+	}
+
+	// Calculate utility for each action
+	actionUtilities := make([]float64, len(node.ActionOptions))
+
+	for i, actionType := range node.ActionOptions {
+		actionProbability := strategy[i]
+
+		// Create the PlayerAction for this action type
+		action := trainer.createActionForType(actionType, node)
+
+		// Create child node
+		childNode := NewGameStateNode(node, action, actionProbability)
+
+		// Recursively calculate utility
+		actionUtilities[i] = trainer.CalculateNodeUtility(childNode)
+	}
+
+	// Calculate node utility as dot product of action utilities and strategy
+	var nodeUtility float64
+	for i, utility := range actionUtilities {
+		nodeUtility += strategy[i] * utility
+	}
+
+	// Add to cumulative regrets only for the updating player
+	if activePlayer == trainer.UpdatingPlayer {
+		var gsn GameStateNode = node
+		AddToCumulativeRegrets(infoSet, &gsn, actionUtilities, nodeUtility)
+	}
+
+	return nodeUtility
+}
+
+// createActionForType creates a PlayerAction for the given action type.
+// The Amount is calculated based on the pot size and action type.
+func (trainer *VanillaCFRTrainer) createActionForType(actionType EnumActionType, node *PlayerNode) PlayerAction {
+	gameState := node.GetGameState()
+	potSize := gameState.PotSize
+	currentStreetActions := getCurrentStreetActions(&gameState.History)
+
+	var activeStackSize float64
+	if gameState.History.ActivePlayer == Player1 {
+		activeStackSize = gameState.Player1StackSize
+	} else {
+		activeStackSize = gameState.Player2StackSize
+	}
+
+	var amount float64
+	switch actionType {
+	case Check:
+		amount = 0
+	case Call:
+		// Call amount is the last raise amount
+		if len(currentStreetActions) > 0 {
+			lastAction := currentStreetActions[len(currentStreetActions)-1]
+			if isRaiseAction(lastAction.ActionType) {
+				amount = lastAction.Amount
+			}
+		}
+	case Raise33:
+		amount = potSize * 0.33
+	case Raise50:
+		amount = potSize * 0.50
+	case Raise75:
+		amount = potSize * 0.75
+	case Raise100:
+		amount = potSize * 1.00
+	case RaiseAllIn:
+		amount = activeStackSize
+	case Fold:
+		amount = 0
+	}
+
+	return PlayerAction{
+		ActionType: actionType,
+		Amount:     amount,
+		Player:     gameState.History.ActivePlayer,
+	}
 }

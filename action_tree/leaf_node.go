@@ -46,6 +46,12 @@ func NewLeafNode(parentGameStateNode PlayerNode, action PlayerAction, actionProb
 	}
 
 	winner := determineWinner(gameState, parentGameStateNode.History.ActivePlayer, action)
+	switch winner {
+	case Player1:
+		gameState.Player1StackSize += gameState.PotSize
+	case Player2:
+		gameState.Player2StackSize += gameState.PotSize
+	}
 
 	return &LeafNode{
 		GameState: gameState,
