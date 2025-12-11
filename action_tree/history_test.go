@@ -76,7 +76,7 @@ func TestAddToHistory_PlayerActions_Flop(t *testing.T) {
 				return h
 			},
 			action: PlayerAction{
-				ActionType: Raise,
+				ActionType: Raise50,
 				Amount:     100,
 			},
 			expectedPlayer: Player2,
@@ -87,7 +87,7 @@ func TestAddToHistory_PlayerActions_Flop(t *testing.T) {
 			setupHistory: func() *History {
 				h := createFlopHistory()
 				h.ActivePlayer = Player2
-				h.FlopActions = []PlayerAction{{ActionType: Raise, Amount: 100}}
+				h.FlopActions = []PlayerAction{{ActionType: Raise50, Amount: 100}}
 				return h
 			},
 			action: PlayerAction{
@@ -102,7 +102,7 @@ func TestAddToHistory_PlayerActions_Flop(t *testing.T) {
 			setupHistory: func() *History {
 				h := createFlopHistory()
 				h.ActivePlayer = Player2
-				h.FlopActions = []PlayerAction{{ActionType: Raise, Amount: 100}}
+				h.FlopActions = []PlayerAction{{ActionType: Raise50, Amount: 100}}
 				return h
 			},
 			action: PlayerAction{
@@ -178,7 +178,7 @@ func TestAddToHistory_PlayerActions_River(t *testing.T) {
 			setupHistory: func() *History {
 				h := createRiverHistory()
 				h.ActivePlayer = Player2
-				h.RiverActions = []PlayerAction{{ActionType: Raise, Amount: 100}}
+				h.RiverActions = []PlayerAction{{ActionType: Raise50, Amount: 100}}
 				return h
 			},
 			action: PlayerAction{
@@ -289,6 +289,10 @@ func TestAddToHistory_ChanceActions(t *testing.T) {
 }
 
 func TestThreeBetCapScenario(t *testing.T) {
+	// Use reasonable stack and pot sizes for testing
+	stackSize := 1000.0
+	potSize := 100.0
+
 	// Test the complete 3-bet cap scenario with actual game flow
 	t.Run("Complete 3-bet cap sequence", func(t *testing.T) {
 		// Start with flop dealt
@@ -296,36 +300,39 @@ func TestThreeBetCapScenario(t *testing.T) {
 
 		// Player 1 raises (1-bet)
 		h.ActivePlayer = Player1
-		options := GetActionOptionsFromHistory(h)
-		if len(options) != 2 || options[0] != Check || options[1] != Raise {
-			t.Errorf("Player1 initial: expected [Check, Raise], got %v", options)
+		options := GetActionOptionsFromHistory(h, stackSize, potSize)
+		if options[0] != Check {
+			t.Errorf("Player1 initial: expected first option to be Check, got %v", options[0])
 		}
-		h = AddToHistory(h, PlayerAction{ActionType: Raise, Amount: 100})
+		h = AddToHistory(h, PlayerAction{ActionType: Raise50, Amount: 100})
 
 		// Player 2 can re-raise (2-bet)
-		options = GetActionOptionsFromHistory(h)
-		if len(options) != 3 || options[0] != Call || options[1] != Raise || options[2] != Fold {
-			t.Errorf("Player2 facing 1-bet: expected [Call, Raise, Fold], got %v", options)
+		options = GetActionOptionsFromHistory(h, stackSize-100, potSize+100)
+		if options[0] != Call {
+			t.Errorf("Player2 facing 1-bet: expected first option to be Call, got %v", options[0])
 		}
-		h = AddToHistory(h, PlayerAction{ActionType: Raise, Amount: 300})
+		if options[len(options)-1] != Fold {
+			t.Errorf("Player2 facing 1-bet: expected last option to be Fold, got %v", options[len(options)-1])
+		}
+		h = AddToHistory(h, PlayerAction{ActionType: Raise50, Amount: 300})
 
 		// Player 1 can re-raise again (3-bet)
-		options = GetActionOptionsFromHistory(h)
-		if len(options) != 3 || options[0] != Call || options[1] != Raise || options[2] != Fold {
-			t.Errorf("Player1 facing 2-bet: expected [Call, Raise, Fold], got %v", options)
+		options = GetActionOptionsFromHistory(h, stackSize-100, potSize+400)
+		if options[0] != Call {
+			t.Errorf("Player1 facing 2-bet: expected first option to be Call, got %v", options[0])
 		}
-		h = AddToHistory(h, PlayerAction{ActionType: Raise, Amount: 900})
+		h = AddToHistory(h, PlayerAction{ActionType: Raise50, Amount: 900})
 
 		// Player 2 CANNOT re-raise (facing 3-bet cap)
-		options = GetActionOptionsFromHistory(h)
+		options = GetActionOptionsFromHistory(h, stackSize-300, potSize+1300)
 		if len(options) != 2 || options[0] != Call || options[1] != Fold {
 			t.Errorf("Player2 facing 3-bet: expected [Call, Fold] only, got %v", options)
 		}
 
 		// Verify no Raise option is available
 		for _, opt := range options {
-			if opt == Raise {
-				t.Error("Raise should not be available when facing 3-bet cap")
+			if isRaiseAction(opt) {
+				t.Errorf("Raise options should not be available when facing 3-bet cap, found %v", opt)
 			}
 		}
 	})
@@ -335,9 +342,9 @@ func TestThreeBetCapScenario(t *testing.T) {
 		// Setup: 3-bet on flop, then call to go to turn
 		h := createFlopHistory()
 		h.FlopActions = []PlayerAction{
-			{ActionType: Raise, Amount: 100},
-			{ActionType: Raise, Amount: 300},
-			{ActionType: Raise, Amount: 900},
+			{ActionType: Raise50, Amount: 100},
+			{ActionType: Raise50, Amount: 300},
+			{ActionType: Raise50, Amount: 900},
 			{ActionType: Call, Amount: 900}, // Call to close betting
 		}
 
@@ -347,124 +354,108 @@ func TestThreeBetCapScenario(t *testing.T) {
 		})
 
 		// On turn, Player1 should be able to check or raise again (cap resets)
-		options := GetActionOptionsFromHistory(h)
-		if len(options) != 2 || options[0] != Check || options[1] != Raise {
-			t.Errorf("New street should reset betting cap: expected [Check, Raise], got %v", options)
+		options := GetActionOptionsFromHistory(h, stackSize, potSize)
+		if options[0] != Check {
+			t.Errorf("New street should reset betting cap: expected first option to be Check, got %v", options[0])
+		}
+		// Should have raise options available
+		if len(options) < 2 {
+			t.Errorf("New street should have raise options available, got %v", options)
 		}
 	})
 }
 
 func TestGetActionOptionsFromHistory(t *testing.T) {
-	tests := []struct {
-		name            string
-		setupHistory    func() *History
-		expectedOptions []EnumActionType
-		description     string
-	}{
-		{
-			name: "No actions on street - can Check or Raise",
-			setupHistory: func() *History {
-				h := createFlopHistory()
-				h.ActivePlayer = Player1
-				return h
-			},
-			expectedOptions: []EnumActionType{Check, Raise},
-			description:     "First to act on a street can Check or Raise",
-		},
-		{
-			name: "After Check - can Check or Raise",
-			setupHistory: func() *History {
-				h := createFlopHistory()
-				h.FlopActions = []PlayerAction{{ActionType: Check, Amount: 0}}
-				h.ActivePlayer = Player2
-				return h
-			},
-			expectedOptions: []EnumActionType{Check, Raise},
-			description:     "After opponent checks, can Check or Raise",
-		},
-		{
-			name: "Facing 1-bet - can Call, Raise, or Fold",
-			setupHistory: func() *History {
-				h := createFlopHistory()
-				h.FlopActions = []PlayerAction{{ActionType: Raise, Amount: 100}}
-				h.ActivePlayer = Player2
-				return h
-			},
-			expectedOptions: []EnumActionType{Call, Raise, Fold},
-			description:     "Facing a single raise, can Call, Raise, or Fold",
-		},
-		{
-			name: "Facing 2-bet - can Call, Raise, or Fold",
-			setupHistory: func() *History {
-				h := createFlopHistory()
-				h.FlopActions = []PlayerAction{
-					{ActionType: Raise, Amount: 100},
-					{ActionType: Raise, Amount: 300},
-				}
-				h.ActivePlayer = Player1
-				return h
-			},
-			expectedOptions: []EnumActionType{Call, Raise, Fold},
-			description:     "Facing a re-raise (2-bet), can still Call, Raise, or Fold",
-		},
-		{
-			name: "Facing 3-bet (cap) - can only Call or Fold",
-			setupHistory: func() *History {
-				h := createFlopHistory()
-				h.FlopActions = []PlayerAction{
-					{ActionType: Raise, Amount: 100},
-					{ActionType: Raise, Amount: 300},
-					{ActionType: Raise, Amount: 900},
-				}
-				h.ActivePlayer = Player2
-				return h
-			},
-			expectedOptions: []EnumActionType{Call, Fold},
-			description:     "Facing 3-bet (cap), can only Call or Fold",
-		},
-		{
-			name: "Turn - No actions yet",
-			setupHistory: func() *History {
-				h := createTurnHistory()
-				h.ActivePlayer = Player1
-				return h
-			},
-			expectedOptions: []EnumActionType{Check, Raise},
-			description:     "First to act on turn can Check or Raise",
-		},
-		{
-			name: "River - Facing raise",
-			setupHistory: func() *History {
-				h := createRiverHistory()
-				h.RiverActions = []PlayerAction{{ActionType: Raise, Amount: 100}}
-				h.ActivePlayer = Player2
-				return h
-			},
-			expectedOptions: []EnumActionType{Call, Raise, Fold},
-			description:     "Facing raise on river, can Call, Raise, or Fold",
-		},
-	}
+	// Use reasonable stack and pot sizes
+	stackSize := 1000.0
+	potSize := 100.0
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			history := tt.setupHistory()
-			options := GetActionOptionsFromHistory(history)
+	t.Run("No actions on street - can Check plus raises", func(t *testing.T) {
+		h := createFlopHistory()
+		h.ActivePlayer = Player1
+		options := GetActionOptionsFromHistory(h, stackSize, potSize)
+		if options[0] != Check {
+			t.Errorf("First option should be Check, got %v", options[0])
+		}
+		if len(options) < 2 {
+			t.Errorf("Should have raise options available, got %v", options)
+		}
+	})
 
-			if len(options) != len(tt.expectedOptions) {
-				t.Errorf("%s: expected %d options, got %d",
-					tt.description, len(tt.expectedOptions), len(options))
-				return
-			}
+	t.Run("After Check - can Check plus raises", func(t *testing.T) {
+		h := createFlopHistory()
+		h.FlopActions = []PlayerAction{{ActionType: Check, Amount: 0}}
+		h.ActivePlayer = Player2
+		options := GetActionOptionsFromHistory(h, stackSize, potSize)
+		if options[0] != Check {
+			t.Errorf("First option should be Check, got %v", options[0])
+		}
+	})
 
-			// Check each option is present
-			for i, expectedOption := range tt.expectedOptions {
-				if options[i] != expectedOption {
-					t.Errorf("%s: expected option %v at position %d, got %v",
-						tt.description, expectedOption, i, options[i])
-				}
-			}
-		})
-	}
+	t.Run("Facing 1-bet - can Call, raises, or Fold", func(t *testing.T) {
+		h := createFlopHistory()
+		h.FlopActions = []PlayerAction{{ActionType: Raise50, Amount: 100}}
+		h.ActivePlayer = Player2
+		options := GetActionOptionsFromHistory(h, stackSize, potSize+100)
+		if options[0] != Call {
+			t.Errorf("First option should be Call, got %v", options[0])
+		}
+		if options[len(options)-1] != Fold {
+			t.Errorf("Last option should be Fold, got %v", options[len(options)-1])
+		}
+	})
+
+	t.Run("Facing 2-bet - can Call, raises, or Fold", func(t *testing.T) {
+		h := createFlopHistory()
+		h.FlopActions = []PlayerAction{
+			{ActionType: Raise50, Amount: 100},
+			{ActionType: Raise50, Amount: 300},
+		}
+		h.ActivePlayer = Player1
+		options := GetActionOptionsFromHistory(h, stackSize-100, potSize+400)
+		if options[0] != Call {
+			t.Errorf("First option should be Call, got %v", options[0])
+		}
+		if options[len(options)-1] != Fold {
+			t.Errorf("Last option should be Fold, got %v", options[len(options)-1])
+		}
+	})
+
+	t.Run("Facing 3-bet (cap) - can only Call or Fold", func(t *testing.T) {
+		h := createFlopHistory()
+		h.FlopActions = []PlayerAction{
+			{ActionType: Raise50, Amount: 100},
+			{ActionType: Raise50, Amount: 300},
+			{ActionType: Raise50, Amount: 900},
+		}
+		h.ActivePlayer = Player2
+		options := GetActionOptionsFromHistory(h, stackSize-300, potSize+1300)
+		if len(options) != 2 || options[0] != Call || options[1] != Fold {
+			t.Errorf("Facing 3-bet cap should only have [Call, Fold], got %v", options)
+		}
+	})
+
+	t.Run("Turn - No actions yet", func(t *testing.T) {
+		h := createTurnHistory()
+		h.ActivePlayer = Player1
+		options := GetActionOptionsFromHistory(h, stackSize, potSize)
+		if options[0] != Check {
+			t.Errorf("First option on turn should be Check, got %v", options[0])
+		}
+	})
+
+	t.Run("River - Facing raise", func(t *testing.T) {
+		h := createRiverHistory()
+		h.RiverActions = []PlayerAction{{ActionType: Raise50, Amount: 100}}
+		h.ActivePlayer = Player2
+		options := GetActionOptionsFromHistory(h, stackSize, potSize+100)
+		if options[0] != Call {
+			t.Errorf("First option should be Call, got %v", options[0])
+		}
+		if options[len(options)-1] != Fold {
+			t.Errorf("Last option should be Fold, got %v", options[len(options)-1])
+		}
+	})
 }
 
 func TestHistoryClone(t *testing.T) {
@@ -472,13 +463,13 @@ func TestHistoryClone(t *testing.T) {
 	original := createFlopHistory()
 	original.FlopActions = []PlayerAction{
 		{ActionType: Check, Amount: 0},
-		{ActionType: Raise, Amount: 100},
+		{ActionType: Raise50, Amount: 100},
 	}
 
 	cloned := original.Clone()
 
 	// Modify the cloned history
-	cloned.FlopActions[0] = PlayerAction{ActionType: Raise, Amount: 200}
+	cloned.FlopActions[0] = PlayerAction{ActionType: Raise50, Amount: 200}
 
 	// Verify original is unchanged
 	if original.FlopActions[0].ActionType != Check {
@@ -503,7 +494,7 @@ func TestGetCurrentStreetActions(t *testing.T) {
 				h := createRiverHistory()
 				h.RiverActions = []PlayerAction{
 					{ActionType: Check, Amount: 0},
-					{ActionType: Raise, Amount: 100},
+					{ActionType: Raise50, Amount: 100},
 				}
 				return h
 			},
@@ -514,7 +505,7 @@ func TestGetCurrentStreetActions(t *testing.T) {
 			name: "Turn actions returned when on turn",
 			setupHistory: func() *History {
 				h := createTurnHistory()
-				h.TurnActions = []PlayerAction{{ActionType: Raise, Amount: 100}}
+				h.TurnActions = []PlayerAction{{ActionType: Raise50, Amount: 100}}
 				return h
 			},
 			expectedActions: 1,
@@ -559,4 +550,144 @@ func TestGetCurrentStreetActions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidRaiseSizes(t *testing.T) {
+	t.Run("All raises available with large stack", func(t *testing.T) {
+		// Pot=100, Stack=1000 -> all raises affordable
+		// 33% = 33, 50% = 50, 75% = 75, 100% = 100, all < 1000
+		h := createFlopHistory()
+		h.ActivePlayer = Player1
+		options := GetActionOptionsFromHistory(h, 1000, 100)
+
+		// Should have: Check, Raise33, Raise50, Raise75, Raise100, RaiseAllIn
+		if options[0] != Check {
+			t.Errorf("Expected Check first, got %v", options[0])
+		}
+		// Check that all raise types are present
+		hasRaise33 := false
+		hasRaise50 := false
+		hasRaise75 := false
+		hasRaise100 := false
+		hasRaiseAllIn := false
+		for _, opt := range options {
+			switch opt {
+			case Raise33:
+				hasRaise33 = true
+			case Raise50:
+				hasRaise50 = true
+			case Raise75:
+				hasRaise75 = true
+			case Raise100:
+				hasRaise100 = true
+			case RaiseAllIn:
+				hasRaiseAllIn = true
+			}
+		}
+		if !hasRaise33 || !hasRaise50 || !hasRaise75 || !hasRaise100 || !hasRaiseAllIn {
+			t.Errorf("Expected all raise sizes available, got %v", options)
+		}
+	})
+
+	t.Run("Limited raises with small stack", func(t *testing.T) {
+		// Pot=100, Stack=40
+		// 33% = 33 (affordable), 50% = 50 (not affordable), 75% = 75 (not), 100% = 100 (not)
+		h := createFlopHistory()
+		h.ActivePlayer = Player1
+		options := GetActionOptionsFromHistory(h, 40, 100)
+
+		// Should have: Check, Raise33, RaiseAllIn
+		hasRaise33 := false
+		hasRaise50 := false
+		hasRaiseAllIn := false
+		for _, opt := range options {
+			switch opt {
+			case Raise33:
+				hasRaise33 = true
+			case Raise50:
+				hasRaise50 = true
+			case RaiseAllIn:
+				hasRaiseAllIn = true
+			}
+		}
+		if !hasRaise33 {
+			t.Errorf("Expected Raise33 to be available (33 <= 40)")
+		}
+		if hasRaise50 {
+			t.Errorf("Raise50 should NOT be available (50 > 40)")
+		}
+		if !hasRaiseAllIn {
+			t.Errorf("RaiseAllIn should always be available")
+		}
+	})
+
+	t.Run("Only all-in when stack is tiny", func(t *testing.T) {
+		// Pot=100, Stack=10
+		// 33% = 33 > 10, so only RaiseAllIn available
+		h := createFlopHistory()
+		h.ActivePlayer = Player1
+		options := GetActionOptionsFromHistory(h, 10, 100)
+
+		// Should have: Check, RaiseAllIn
+		if len(options) != 2 {
+			t.Errorf("Expected 2 options (Check, RaiseAllIn), got %v", options)
+		}
+		if options[0] != Check {
+			t.Errorf("Expected Check, got %v", options[0])
+		}
+		if options[1] != RaiseAllIn {
+			t.Errorf("Expected RaiseAllIn, got %v", options[1])
+		}
+	})
+
+	t.Run("Facing all-in can only call or fold", func(t *testing.T) {
+		h := createFlopHistory()
+		h.FlopActions = []PlayerAction{{ActionType: RaiseAllIn, Amount: 500}}
+		h.ActivePlayer = Player2
+		options := GetActionOptionsFromHistory(h, 1000, 600)
+
+		if len(options) != 2 || options[0] != Call || options[1] != Fold {
+			t.Errorf("Facing all-in should only have [Call, Fold], got %v", options)
+		}
+	})
+
+	t.Run("Call amount >= stack can only call or fold", func(t *testing.T) {
+		// Opponent raised 100, we only have 80 left
+		h := createFlopHistory()
+		h.FlopActions = []PlayerAction{{ActionType: Raise100, Amount: 100}}
+		h.ActivePlayer = Player2
+		options := GetActionOptionsFromHistory(h, 80, 200)
+
+		if len(options) != 2 || options[0] != Call || options[1] != Fold {
+			t.Errorf("When call amount >= stack, should only have [Call, Fold], got %v", options)
+		}
+	})
+
+	t.Run("Raise options after call based on remaining stack", func(t *testing.T) {
+		// Pot=100, facing raise of 50, stack=200
+		// After calling 50: stackAfterCall=150, potAfterCall=150
+		// 33% of 150 = 49.5 (affordable), 50% = 75, 75% = 112.5, 100% = 150 (exactly affordable)
+		h := createFlopHistory()
+		h.FlopActions = []PlayerAction{{ActionType: Raise50, Amount: 50}}
+		h.ActivePlayer = Player2
+		options := GetActionOptionsFromHistory(h, 200, 100)
+
+		// Should have: Call, Raise33, Raise50, Raise75, Raise100, RaiseAllIn, Fold
+		if options[0] != Call {
+			t.Errorf("Expected Call first, got %v", options[0])
+		}
+		if options[len(options)-1] != Fold {
+			t.Errorf("Expected Fold last, got %v", options[len(options)-1])
+		}
+		// All raises should be available since 150 stack covers all pot% bets
+		hasRaise100 := false
+		for _, opt := range options {
+			if opt == Raise100 {
+				hasRaise100 = true
+			}
+		}
+		if !hasRaise100 {
+			t.Errorf("Expected Raise100 to be available, got %v", options)
+		}
+	})
 }

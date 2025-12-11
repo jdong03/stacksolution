@@ -2,9 +2,146 @@ package game
 
 import "sort"
 
-// TODO: Imlement EvaluateHand using helper functions below. Evaluate hand should return a bool and a list of the played cards
-func EvaluateHand(flop []Card, playerHand []Card, turn Card, river Card) string {
-	return ""
+// Hand rank constants (higher is better)
+const (
+	HighCard      = 1
+	OnePair       = 2
+	TwoPair       = 3
+	ThreeOfAKind  = 4
+	Straight      = 5
+	Flush         = 6
+	FullHouse     = 7
+	FourOfAKind   = 8
+	StraightFlush = 9
+	RoyalFlush    = 10
+)
+
+// EvaluateHand evaluates a poker hand and returns:
+// - rank: the hand ranking (1-10, higher is better)
+// - tiebreakers: ordered list of values for breaking ties (highest first)
+func EvaluateHand(flop []Card, playerHand []Card, turn Card, river Card) (int, []int) {
+	// Check hands from highest to lowest
+
+	// Royal Flush
+	if checkRoyal(flop, playerHand, turn, river) {
+		return RoyalFlush, []int{}
+	}
+
+	// Straight Flush
+	if found, highCard := checkStraightFlush(flop, playerHand, turn, river); found {
+		return StraightFlush, []int{highCard}
+	}
+
+	// Four of a Kind
+	if found, quadRank, kicker := checkQuads(flop, playerHand, turn, river); found {
+		return FourOfAKind, []int{quadRank, kicker}
+	}
+
+	// Full House
+	if found, tripRank, pairRank := checkBoat(flop, playerHand, turn, river); found {
+		return FullHouse, []int{tripRank, pairRank}
+	}
+
+	// Flush
+	if found, _, flushCards := checkFlush(flop, playerHand, turn, river); found {
+		tiebreakers := make([]int, 0, 5)
+		for i := 0; i < 5 && i < len(flushCards); i++ {
+			tiebreakers = append(tiebreakers, flushCards[i].Rank)
+		}
+		return Flush, tiebreakers
+	}
+
+	// Straight
+	if found, straightCards := checkStraight(flop, playerHand, turn, river); found {
+		return Straight, []int{straightCards[0].Rank}
+	}
+
+	// Three of a Kind
+	if found, tripRank := checkTrips(flop, playerHand, turn, river); found {
+		kickers := getKickers(flop, playerHand, turn, river, []int{tripRank}, 2)
+		return ThreeOfAKind, append([]int{tripRank}, kickers...)
+	}
+
+	// Two Pair
+	if found, highPair, lowPair := checkTwoPair(flop, playerHand, turn, river); found {
+		kickers := getKickers(flop, playerHand, turn, river, []int{highPair, lowPair}, 1)
+		return TwoPair, append([]int{highPair, lowPair}, kickers...)
+	}
+
+	// One Pair
+	if found, pairRank := checkPair(flop, playerHand, turn, river); found {
+		kickers := getKickers(flop, playerHand, turn, river, []int{pairRank}, 3)
+		return OnePair, append([]int{pairRank}, kickers...)
+	}
+
+	// High Card
+	kickers := getKickers(flop, playerHand, turn, river, []int{}, 5)
+	return HighCard, kickers
+}
+
+// CompareHands compares two players' hands and returns:
+// 1 if player1 wins, -1 if player2 wins, 0 if tie
+func CompareHands(p1Cards, p2Cards, flop []Card, turn, river Card) int {
+	p1Rank, p1Tiebreakers := EvaluateHand(flop, p1Cards, turn, river)
+	p2Rank, p2Tiebreakers := EvaluateHand(flop, p2Cards, turn, river)
+
+	// Higher rank wins
+	if p1Rank > p2Rank {
+		return 1
+	}
+	if p2Rank > p1Rank {
+		return -1
+	}
+
+	// Same rank - compare tiebreakers
+	for i := 0; i < len(p1Tiebreakers) && i < len(p2Tiebreakers); i++ {
+		if p1Tiebreakers[i] > p2Tiebreakers[i] {
+			return 1
+		}
+		if p2Tiebreakers[i] > p1Tiebreakers[i] {
+			return -1
+		}
+	}
+
+	// Complete tie
+	return 0
+}
+
+// getKickers returns the top N kickers excluding the specified ranks
+func getKickers(flop []Card, playerHand []Card, turn Card, river Card, excludeRanks []int, count int) []int {
+	cards := append(playerHand, flop...)
+	cards = append(cards, turn, river)
+
+	// Build exclusion map
+	exclude := make(map[int]bool)
+	for _, r := range excludeRanks {
+		exclude[r] = true
+	}
+
+	// Get all non-excluded ranks, sorted descending
+	ranks := make([]int, 0)
+	for _, card := range cards {
+		if !exclude[card.Rank] && card.Rank > 0 {
+			ranks = append(ranks, card.Rank)
+		}
+	}
+
+	// Sort descending
+	sort.Slice(ranks, func(i, j int) bool {
+		return ranks[i] > ranks[j]
+	})
+
+	// Remove duplicates and take top N
+	seen := make(map[int]bool)
+	result := make([]int, 0, count)
+	for _, r := range ranks {
+		if !seen[r] && len(result) < count {
+			seen[r] = true
+			result = append(result, r)
+		}
+	}
+
+	return result
 }
 
 func checkPair(flop []Card, playerHand []Card, turn Card, river Card) (bool, int) {

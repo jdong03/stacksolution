@@ -21,24 +21,30 @@ type GameState struct {
 	Player2StackSize        float64
 	Player1ReachProbability float64
 	Player2ReachProbability float64
+	PotSize                 float64
 }
 
 /*
 GetStartingNode creates the starting game state node (PlayerNode)
 given the players' hole cards.
 */
-func GetStartingNode(player1Cards []game.Card, player2Cards []game.Card) GameStateNode {
+func GetStartingNode(player1Cards []game.Card, player2Cards []game.Card, initialPotSize float64) GameStateNode {
+	history := NewHistory()
+	// Player1 acts first, so use Player1's stack size
+	actionOptions := GetActionOptionsFromHistory(history, Player1InitialStackSize, initialPotSize)
+
 	node := &PlayerNode{
 		GameState: GameState{
-			History:                 *NewHistory(),
+			History:                 *history,
 			Player1Cards:            player1Cards,
 			Player2Cards:            player2Cards,
 			Player1StackSize:        Player1InitialStackSize,
 			Player2StackSize:        Player2InitialStackSize,
 			Player1ReachProbability: 1.0,
 			Player2ReachProbability: 1.0,
+			PotSize:                 initialPotSize,
 		},
-		ActionOptions: []EnumActionType{Check, Raise},
+		ActionOptions: actionOptions,
 	}
 	return node
 }

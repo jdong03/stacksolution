@@ -40,7 +40,7 @@ func TestGetStartingNode(t *testing.T) {
 		{Rank: 13, Suit: "Clubs"},  // King of Clubs
 	}
 
-	node := GetStartingNode(player1Cards, player2Cards)
+	node := GetStartingNode(player1Cards, player2Cards, 10.0)
 
 	// Verify it returns a PlayerNode (starts with Player1 action on flop)
 	playerNode, ok := node.(*PlayerNode)
@@ -80,15 +80,13 @@ func TestGetStartingNode(t *testing.T) {
 		t.Errorf("Expected Player1 to act first, got %v", gameState.History.ActivePlayer)
 	}
 
-	// Check action options - should be Check, Raise at the start
-	expectedOptions := []EnumActionType{Check, Raise}
-	if len(playerNode.ActionOptions) != len(expectedOptions) {
-		t.Errorf("Expected %d action options, got %d", len(expectedOptions), len(playerNode.ActionOptions))
+	// Check action options - should be Check plus valid raise sizes at the start
+	// With pot=10 and stack=100, all raise sizes should be available
+	if len(playerNode.ActionOptions) < 2 {
+		t.Errorf("Expected at least 2 action options (Check + raises), got %d", len(playerNode.ActionOptions))
 	}
-	for i, opt := range expectedOptions {
-		if i < len(playerNode.ActionOptions) && playerNode.ActionOptions[i] != opt {
-			t.Errorf("Expected action option %v at index %d, got %v", opt, i, playerNode.ActionOptions[i])
-		}
+	if playerNode.ActionOptions[0] != Check {
+		t.Errorf("Expected first action option to be Check, got %v", playerNode.ActionOptions[0])
 	}
 }
 
@@ -97,7 +95,7 @@ func TestNewGameStateNode_PlayerToPlayer_Raise(t *testing.T) {
 	startNode := createTestStartingNode()
 
 	raiseAction := PlayerAction{
-		ActionType: Raise,
+		ActionType: Raise50,
 		Amount:     10,
 	}
 
@@ -145,19 +143,20 @@ func TestNewGameStateNode_PlayerToPlayer_Raise(t *testing.T) {
 	if len(gameState.History.FlopActions) != 1 {
 		t.Errorf("Expected 1 flop action, got %d", len(gameState.History.FlopActions))
 	}
-	if gameState.History.FlopActions[0].ActionType != Raise {
-		t.Errorf("Expected Raise action in history, got %v", gameState.History.FlopActions[0].ActionType)
+	if gameState.History.FlopActions[0].ActionType != Raise50 {
+		t.Errorf("Expected Raise50 action in history, got %v", gameState.History.FlopActions[0].ActionType)
 	}
 
-	// Player2 should have Call, Raise, Fold options
-	expectedOptions := []EnumActionType{Call, Raise, Fold}
-	if len(playerNode.ActionOptions) != len(expectedOptions) {
-		t.Errorf("Expected %d action options for Player2, got %d", len(expectedOptions), len(playerNode.ActionOptions))
+	// Player2 should have Call, valid raises, Fold options
+	// First should be Call, last should be Fold
+	if len(playerNode.ActionOptions) < 3 {
+		t.Errorf("Expected at least 3 action options for Player2 (Call, raises, Fold), got %d", len(playerNode.ActionOptions))
 	}
-	for i, opt := range expectedOptions {
-		if i < len(playerNode.ActionOptions) && playerNode.ActionOptions[i] != opt {
-			t.Errorf("Expected action option %v at index %d, got %v", opt, i, playerNode.ActionOptions[i])
-		}
+	if playerNode.ActionOptions[0] != Call {
+		t.Errorf("Expected first action option to be Call, got %v", playerNode.ActionOptions[0])
+	}
+	if playerNode.ActionOptions[len(playerNode.ActionOptions)-1] != Fold {
+		t.Errorf("Expected last action option to be Fold, got %v", playerNode.ActionOptions[len(playerNode.ActionOptions)-1])
 	}
 }
 
@@ -194,15 +193,12 @@ func TestNewGameStateNode_PlayerToPlayer_Check(t *testing.T) {
 		t.Errorf("Player2 stack should be unchanged after check")
 	}
 
-	// Player2 should have Check, Raise options
-	expectedOptions := []EnumActionType{Check, Raise}
-	if len(playerNode.ActionOptions) != len(expectedOptions) {
-		t.Errorf("Expected %d action options for Player2 after check, got %d", len(expectedOptions), len(playerNode.ActionOptions))
+	// Player2 should have Check plus valid raise options
+	if len(playerNode.ActionOptions) < 2 {
+		t.Errorf("Expected at least 2 action options for Player2 after check (Check + raises), got %d", len(playerNode.ActionOptions))
 	}
-	for i, opt := range expectedOptions {
-		if i < len(playerNode.ActionOptions) && playerNode.ActionOptions[i] != opt {
-			t.Errorf("Expected action option %v at index %d, got %v", opt, i, playerNode.ActionOptions[i])
-		}
+	if playerNode.ActionOptions[0] != Check {
+		t.Errorf("Expected first action option to be Check, got %v", playerNode.ActionOptions[0])
 	}
 }
 
@@ -211,7 +207,7 @@ func TestNewGameStateNode_PlayerToChance_Call(t *testing.T) {
 	startNode := createTestStartingNode()
 
 	// Player1 raises
-	raiseAction := PlayerAction{ActionType: Raise, Amount: 10}
+	raiseAction := PlayerAction{ActionType: Raise50, Amount: 10}
 	node1 := NewGameStateNode(startNode, raiseAction, 1.0)
 
 	// Player2 calls -> should create ChanceNode
@@ -284,7 +280,7 @@ func TestNewGameStateNode_PlayerToLeaf_Fold(t *testing.T) {
 	startNode := createTestStartingNode()
 
 	// Player1 raises
-	raiseAction := PlayerAction{ActionType: Raise, Amount: 10}
+	raiseAction := PlayerAction{ActionType: Raise50, Amount: 10}
 	node1 := NewGameStateNode(startNode, raiseAction, 1.0)
 
 	// Player2 folds -> should create LeafNode
@@ -328,7 +324,7 @@ func TestNewGameStateNode_PlayerToLeaf_RiverCall(t *testing.T) {
 	}
 	h.TurnCard = []game.Card{{Rank: 11, Suit: "Hearts"}}
 	h.RiverCard = []game.Card{{Rank: 10, Suit: "Hearts"}}
-	h.RiverActions = []PlayerAction{{ActionType: Raise, Amount: 20}}
+	h.RiverActions = []PlayerAction{{ActionType: Raise50, Amount: 20}}
 	h.ActivePlayer = Player2
 
 	parentNode := &PlayerNode{
@@ -340,8 +336,9 @@ func TestNewGameStateNode_PlayerToLeaf_RiverCall(t *testing.T) {
 			Player2StackSize:        100,
 			Player1ReachProbability: 1.0,
 			Player2ReachProbability: 1.0,
+			PotSize:                 40,
 		},
-		ActionOptions: []EnumActionType{Call, Raise, Fold},
+		ActionOptions: []EnumActionType{Call, Raise50, Fold},
 	}
 
 	// Player2 calls on river
@@ -417,15 +414,12 @@ func TestNewGameStateNode_ChanceToPlayer(t *testing.T) {
 		t.Errorf("Expected 1 turn card, got %d", len(gameState.History.TurnCard))
 	}
 
-	// Player1 should have Check, Raise options on new street
-	expectedOptions := []EnumActionType{Check, Raise}
-	if len(playerNode.ActionOptions) != len(expectedOptions) {
-		t.Errorf("Expected %d action options on new street, got %d", len(expectedOptions), len(playerNode.ActionOptions))
+	// Player1 should have Check plus valid raise options on new street
+	if len(playerNode.ActionOptions) < 2 {
+		t.Errorf("Expected at least 2 action options on new street (Check + raises), got %d", len(playerNode.ActionOptions))
 	}
-	for i, opt := range expectedOptions {
-		if i < len(playerNode.ActionOptions) && playerNode.ActionOptions[i] != opt {
-			t.Errorf("Expected action option %v at index %d, got %v", opt, i, playerNode.ActionOptions[i])
-		}
+	if playerNode.ActionOptions[0] != Check {
+		t.Errorf("Expected first action option to be Check, got %v", playerNode.ActionOptions[0])
 	}
 
 	// Stack sizes and reach probabilities should be unchanged by chance action
@@ -449,15 +443,15 @@ func TestNewGameStateNode_ThreeBetCap(t *testing.T) {
 	startNode := createTestStartingNode()
 
 	// Player1 raises (1-bet)
-	raise1 := PlayerAction{ActionType: Raise, Amount: 10}
+	raise1 := PlayerAction{ActionType: Raise50, Amount: 10}
 	node1 := NewGameStateNode(startNode, raise1, 1.0)
 
 	// Player2 raises (2-bet)
-	raise2 := PlayerAction{ActionType: Raise, Amount: 30}
+	raise2 := PlayerAction{ActionType: Raise50, Amount: 30}
 	node2 := NewGameStateNode(node1, raise2, 1.0)
 
 	// Player1 raises (3-bet)
-	raise3 := PlayerAction{ActionType: Raise, Amount: 50}
+	raise3 := PlayerAction{ActionType: Raise50, Amount: 50}
 	node3 := NewGameStateNode(node2, raise3, 1.0)
 
 	playerNode, ok := node3.(*PlayerNode)
@@ -476,10 +470,10 @@ func TestNewGameStateNode_ThreeBetCap(t *testing.T) {
 		}
 	}
 
-	// Verify no Raise option
+	// Verify no Raise options
 	for _, opt := range playerNode.ActionOptions {
-		if opt == Raise {
-			t.Error("Raise should not be available when facing 3-bet cap")
+		if isRaiseAction(opt) {
+			t.Errorf("Raise options should not be available when facing 3-bet cap, found %v", opt)
 		}
 	}
 }
@@ -500,7 +494,7 @@ func TestNewGameStateNode_CompleteGameFlow(t *testing.T) {
 	node3 := NewGameStateNode(node2, turnAction, 1.0/45.0) // -> PlayerNode
 
 	// Turn: Player1 raises, Player2 calls
-	raise := PlayerAction{ActionType: Raise, Amount: 10}
+	raise := PlayerAction{ActionType: Raise50, Amount: 10}
 	node4 := NewGameStateNode(node3, raise, 1.0)
 	call := PlayerAction{ActionType: Call, Amount: 10}
 	node5 := NewGameStateNode(node4, call, 1.0) // -> ChanceNode
@@ -576,8 +570,9 @@ func TestNewGameStateNode_RiverCheckByPlayer2(t *testing.T) {
 			Player2StackSize:        100.0,
 			Player1ReachProbability: 0.5,
 			Player2ReachProbability: 0.7,
+			PotSize:                 20.0,
 		},
-		ActionOptions: []EnumActionType{Check, Raise},
+		ActionOptions: []EnumActionType{Check, Raise50},
 	}
 
 	// Player2 checks on river (ends the game)
@@ -614,6 +609,111 @@ func TestNewGameStateNode_RiverCheckByPlayer2(t *testing.T) {
 	}
 }
 
+func TestPotSize_InitialValue(t *testing.T) {
+	// Test that initial pot size is set correctly in GetStartingNode
+	player1Cards := []game.Card{{Rank: 14, Suit: "Hearts"}, {Rank: 14, Suit: "Spades"}}
+	player2Cards := []game.Card{{Rank: 13, Suit: "Hearts"}, {Rank: 13, Suit: "Clubs"}}
+
+	node := GetStartingNode(player1Cards, player2Cards, 25.0)
+	gameState := node.GetGameState()
+
+	if gameState.PotSize != 25.0 {
+		t.Errorf("Expected initial pot size 25.0, got %f", gameState.PotSize)
+	}
+}
+
+func TestPotSize_IncreasesOnRaise(t *testing.T) {
+	// Test that pot size increases when Player1 raises
+	startNode := createTestStartingNode()
+	initialPot := startNode.GetGameState().PotSize
+
+	raiseAction := PlayerAction{ActionType: Raise50, Amount: 15}
+	newNode := NewGameStateNode(startNode, raiseAction, 1.0)
+
+	newPot := newNode.GetGameState().PotSize
+	expectedPot := initialPot + 15
+
+	if newPot != expectedPot {
+		t.Errorf("Expected pot size %f after raise, got %f", expectedPot, newPot)
+	}
+}
+
+func TestPotSize_IncreasesOnCall(t *testing.T) {
+	// Test that pot size increases when Player2 calls
+	startNode := createTestStartingNode()
+
+	// Player1 raises
+	raiseAction := PlayerAction{ActionType: Raise50, Amount: 10}
+	node1 := NewGameStateNode(startNode, raiseAction, 1.0)
+	potAfterRaise := node1.GetGameState().PotSize
+
+	// Player2 calls
+	callAction := PlayerAction{ActionType: Call, Amount: 10}
+	node2 := NewGameStateNode(node1, callAction, 1.0)
+
+	expectedPot := potAfterRaise + 10
+	actualPot := node2.GetGameState().PotSize
+
+	if actualPot != expectedPot {
+		t.Errorf("Expected pot size %f after call, got %f", expectedPot, actualPot)
+	}
+}
+
+func TestPotSize_PreservedThroughChanceNode(t *testing.T) {
+	// Test that pot size is preserved through ChanceNode -> PlayerNode transition
+	startNode := createTestStartingNode()
+
+	// Player1 raises, Player2 calls -> ChanceNode
+	raiseAction := PlayerAction{ActionType: Raise50, Amount: 10}
+	node1 := NewGameStateNode(startNode, raiseAction, 1.0)
+	callAction := PlayerAction{ActionType: Call, Amount: 10}
+	chanceNode := NewGameStateNode(node1, callAction, 1.0)
+
+	potAtChance := chanceNode.GetGameState().PotSize
+
+	// Deal turn card
+	turnAction := ChanceAction{RevealedCards: []game.Card{{Rank: 9, Suit: "Clubs"}}}
+	playerNode := NewGameStateNode(chanceNode, turnAction, 1.0/45.0)
+
+	potAfterTurn := playerNode.GetGameState().PotSize
+
+	if potAfterTurn != potAtChance {
+		t.Errorf("Pot size should be preserved through chance node. Expected %f, got %f", potAtChance, potAfterTurn)
+	}
+}
+
+func TestPotSize_AccumulatesThroughGame(t *testing.T) {
+	// Test pot accumulates correctly through multiple betting rounds
+	startNode := createTestStartingNode()
+	initialPot := startNode.GetGameState().PotSize // 10.0
+
+	// Flop: Player1 raises 10, Player2 calls 10 -> pot = 10 + 10 + 10 = 30
+	raise1 := PlayerAction{ActionType: Raise50, Amount: 10}
+	node1 := NewGameStateNode(startNode, raise1, 1.0)
+	call1 := PlayerAction{ActionType: Call, Amount: 10}
+	node2 := NewGameStateNode(node1, call1, 1.0) // ChanceNode
+
+	expectedPotAfterFlop := initialPot + 20
+	if node2.GetGameState().PotSize != expectedPotAfterFlop {
+		t.Errorf("Expected pot %f after flop betting, got %f", expectedPotAfterFlop, node2.GetGameState().PotSize)
+	}
+
+	// Deal turn
+	turnAction := ChanceAction{RevealedCards: []game.Card{{Rank: 11, Suit: "Clubs"}}}
+	node3 := NewGameStateNode(node2, turnAction, 1.0/45.0) // PlayerNode
+
+	// Turn: Player1 raises 15, Player2 calls 15 -> pot = 30 + 15 + 15 = 60
+	raise2 := PlayerAction{ActionType: Raise50, Amount: 15}
+	node4 := NewGameStateNode(node3, raise2, 1.0)
+	call2 := PlayerAction{ActionType: Call, Amount: 15}
+	node5 := NewGameStateNode(node4, call2, 1.0) // ChanceNode
+
+	expectedPotAfterTurn := expectedPotAfterFlop + 30
+	if node5.GetGameState().PotSize != expectedPotAfterTurn {
+		t.Errorf("Expected pot %f after turn betting, got %f", expectedPotAfterTurn, node5.GetGameState().PotSize)
+	}
+}
+
 // Helper function to create a test starting node with flop already dealt
 func createTestStartingNode() *PlayerNode {
 	player1Cards := []game.Card{
@@ -626,7 +726,7 @@ func createTestStartingNode() *PlayerNode {
 	}
 
 	// Create starting node
-	node := GetStartingNode(player1Cards, player2Cards).(*PlayerNode)
+	node := GetStartingNode(player1Cards, player2Cards, 10.0).(*PlayerNode)
 
 	// Add flop cards to history for testing
 	node.GameState.History.FlopCards = []game.Card{
@@ -636,7 +736,7 @@ func createTestStartingNode() *PlayerNode {
 	}
 
 	// Update action options since we're on flop
-	node.ActionOptions = GetActionOptionsFromHistory(&node.GameState.History)
+	node.ActionOptions = GetActionOptionsFromHistory(&node.GameState.History, node.GameState.Player1StackSize, node.GameState.PotSize)
 
 	return node
 }

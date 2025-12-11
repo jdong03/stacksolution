@@ -105,33 +105,110 @@ func AddToHistory(history *History, action Action) *History {
 }
 
 /*
-GetActionOptionsFromHistory returns legal action types based on history
-So far, 3-bet will be the biggest bet allowed on any street. Thus, facing a 3-bet, only options are Call or Fold.
+GetActionOptionsFromHistory returns legal action types based on history, stack size, and pot size.
+Raise sizes are filtered based on whether the bet amount would exceed the player's stack.
+3-bet cap: facing a 3-bet, only options are Call or Fold.
+If facing all-in or call amount >= stack, can only Call or Fold.
 */
-func GetActionOptionsFromHistory(history *History) []EnumActionType {
+func GetActionOptionsFromHistory(history *History, stackSize float64, potSize float64) []EnumActionType {
 	currentStreetActions := getCurrentStreetActions(history)
 
 	if len(currentStreetActions) == 0 {
-		// No actions yet on this street, so options are Check or Raise
-		return []EnumActionType{Check, Raise}
-	} else {
-		// There are actions on this street, check the last action
-		lastAction := currentStreetActions[len(currentStreetActions)-1]
-		if lastAction.ActionType == Raise {
-			if len(currentStreetActions) >= 3 &&
-				currentStreetActions[len(currentStreetActions)-2].ActionType == Raise &&
-				currentStreetActions[len(currentStreetActions)-3].ActionType == Raise {
-				// Facing 3-bet, so options are Call or Fold
-				return []EnumActionType{Call, Fold}
-			} else {
-				// Facing 1-bet or 2-bet, so options are Call, Raise, or Fold
-				return []EnumActionType{Call, Raise, Fold}
-			}
-		} else {
-			// Last action was Check, so options are Check or Raise
-			return []EnumActionType{Check, Raise}
+		// No actions yet on this street, so options are Check or valid Raises
+		validRaises := getValidRaiseSizes(stackSize, potSize)
+		options := []EnumActionType{Check}
+		options = append(options, validRaises...)
+		return options
+	}
+
+	// There are actions on this street, check the last action
+	lastAction := currentStreetActions[len(currentStreetActions)-1]
+
+	if isRaiseAction(lastAction.ActionType) {
+		// If facing all-in, can only Call or Fold
+		if lastAction.ActionType == RaiseAllIn {
+			return []EnumActionType{Call, Fold}
+		}
+
+		// If call amount >= our stack, can only Call (all-in) or Fold
+		callAmount := lastAction.Amount
+		if callAmount >= stackSize {
+			return []EnumActionType{Call, Fold}
+		}
+
+		// Count consecutive raises to check for 3-bet cap
+		raiseCount := countConsecutiveRaises(currentStreetActions)
+		if raiseCount >= 3 {
+			return []EnumActionType{Call, Fold}
+		}
+
+		// Facing 1-bet or 2-bet with chips behind, so options are Call, valid Raises, or Fold
+		// Calculate remaining stack after calling and new pot size for raise calculations
+		stackAfterCall := stackSize - callAmount
+		potAfterCall := potSize + callAmount
+
+		validRaises := getValidRaiseSizes(stackAfterCall, potAfterCall)
+		options := []EnumActionType{Call}
+		options = append(options, validRaises...)
+		options = append(options, Fold)
+		return options
+	}
+
+	// Last action was Check, so options are Check or valid Raises
+	validRaises := getValidRaiseSizes(stackSize, potSize)
+	options := []EnumActionType{Check}
+	options = append(options, validRaises...)
+	return options
+}
+
+// getValidRaiseSizes returns raise sizes that don't exceed the player's stack
+func getValidRaiseSizes(stackSize float64, potSize float64) []EnumActionType {
+	var validRaises []EnumActionType
+
+	// Calculate bet amounts for each raise size
+	raiseSizes := []struct {
+		actionType EnumActionType
+		percentage float64
+	}{
+		{Raise33, 0.33},
+		{Raise50, 0.50},
+		{Raise75, 0.75},
+		{Raise100, 1.00},
+	}
+
+	for _, rs := range raiseSizes {
+		betAmount := potSize * rs.percentage
+		if betAmount <= stackSize {
+			validRaises = append(validRaises, rs.actionType)
 		}
 	}
+
+	// All-in is always available if player has any chips
+	if stackSize > 0 {
+		validRaises = append(validRaises, RaiseAllIn)
+	}
+
+	return validRaises
+}
+
+// isRaiseAction returns true if the action type is any raise variant
+func isRaiseAction(actionType EnumActionType) bool {
+	return actionType == Raise33 || actionType == Raise50 ||
+		actionType == Raise75 || actionType == Raise100 ||
+		actionType == RaiseAllIn
+}
+
+// countConsecutiveRaises counts how many consecutive raises occurred at the end of actions
+func countConsecutiveRaises(actions []PlayerAction) int {
+	count := 0
+	for i := len(actions) - 1; i >= 0; i-- {
+		if isRaiseAction(actions[i].ActionType) {
+			count++
+		} else {
+			break
+		}
+	}
+	return count
 }
 
 func getCurrentStreetActions(history *History) []PlayerAction {

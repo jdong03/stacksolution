@@ -11,7 +11,11 @@ type EnumActionType int
 const (
 	Check EnumActionType = iota
 	Call
-	Raise
+	Raise33
+	Raise50
+	Raise75
+	Raise100
+	RaiseAllIn
 	Fold
 )
 
@@ -35,12 +39,16 @@ type ChanceAction struct {
 // String returns a string representation of the PlayerAction (e.g., "x", "c", "r10.00", "f")
 func (a PlayerAction) String() string {
 	actionNames := map[EnumActionType]string{
-		Check: "x",
-		Call:  "c",
-		Raise: "r",
-		Fold:  "f",
+		Check:      "x",
+		Call:       "c",
+		Raise33:    "r33",
+		Raise50:    "r50",
+		Raise75:    "r75",
+		Raise100:   "r100",
+		RaiseAllIn: "rAllIn",
+		Fold:       "f",
 	}
-	if a.ActionType == Raise {
+	if a.ActionType == Raise33 || a.ActionType == Raise50 || a.ActionType == Raise75 || a.ActionType == Raise100 || a.ActionType == RaiseAllIn {
 		return fmt.Sprintf("%s%.2f", actionNames[a.ActionType], a.Amount)
 	}
 	return actionNames[a.ActionType]

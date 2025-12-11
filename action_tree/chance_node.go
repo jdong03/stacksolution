@@ -19,14 +19,18 @@ func NewChanceNode(parentGameStateNode PlayerNode, action PlayerAction, actionPr
 	player2StackSize := parentGameStateNode.Player2StackSize
 	player1ReachProbability := parentGameStateNode.Player1ReachProbability
 	player2ReachProbability := parentGameStateNode.Player2ReachProbability
+	potSize := parentGameStateNode.PotSize
 
 	// Update stack sizes and reach probabilities based on the action taken
-	if parentGameStateNode.History.ActivePlayer == Player1 {
+	switch parentGameStateNode.History.ActivePlayer {
+	case Player1:
 		player1StackSize -= action.Amount
 		player1ReachProbability *= actionProbability
-	} else if parentGameStateNode.History.ActivePlayer == Player2 {
+		potSize += action.Amount
+	case Player2:
 		player2StackSize -= action.Amount
 		player2ReachProbability *= actionProbability
+		potSize += action.Amount
 	}
 
 	gameState := GameState{
@@ -37,6 +41,7 @@ func NewChanceNode(parentGameStateNode PlayerNode, action PlayerAction, actionPr
 		Player2StackSize:        player2StackSize,
 		Player1ReachProbability: player1ReachProbability,
 		Player2ReachProbability: player2ReachProbability,
+		PotSize:                 potSize,
 	}
 
 	availableCards := determineAvailableCards(gameState)
