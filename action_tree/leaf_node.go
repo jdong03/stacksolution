@@ -4,7 +4,6 @@ import "github.com/jdong03/stacksolution/game"
 
 type LeafNode struct {
 	GameState
-	Winner Player
 }
 
 func (p *LeafNode) GetGameState() GameState {
@@ -45,17 +44,20 @@ func NewLeafNode(parentGameStateNode PlayerNode, action PlayerAction, actionProb
 		PotSize:                 potSize,
 	}
 
-	winner := determineWinner(gameState, parentGameStateNode.History.ActivePlayer, action)
-	switch winner {
-	case Player1:
+	hand_winner := determineWinner(gameState, parentGameStateNode.History.ActivePlayer, action)
+	switch hand_winner {
+	case 1:
 		gameState.Player1StackSize += gameState.PotSize
-	case Player2:
+	case -1:
 		gameState.Player2StackSize += gameState.PotSize
+	case 0:
+		// If it's a tie, both players keep their stacks as is
+		gameState.Player1StackSize += gameState.PotSize / 2
+		gameState.Player2StackSize += gameState.PotSize / 2
 	}
 
 	return &LeafNode{
 		GameState: gameState,
-		Winner:    winner,
 	}
 }
 
@@ -63,13 +65,13 @@ func NewLeafNode(parentGameStateNode PlayerNode, action PlayerAction, actionProb
 // determineWinner determines the winner at a leaf node.
 // If someone folded, the other player wins.
 // If it's a showdown (river ends with call or check-check), compare hands.
-func determineWinner(gameState GameState, lastActivePlayer Player, lastAction PlayerAction) Player {
+func determineWinner(gameState GameState, lastActivePlayer Player, lastAction PlayerAction) int {
 	// Check if someone folded - the player who folded loses
 	if lastAction.ActionType == Fold {
 		if lastActivePlayer == Player1 {
-			return Player2
+			return -1
 		}
-		return Player1
+		return 1
 	}
 
 	// It's a showdown - compare hands using game.CompareHands
@@ -93,8 +95,5 @@ func determineWinner(gameState GameState, lastActivePlayer Player, lastAction Pl
 	)
 
 	// result: 1 = P1 wins, -1 = P2 wins, 0 = tie
-	if result >= 0 {
-		return Player1 // P1 wins or tie (split pot)
-	}
-	return Player2
+	return result
 }

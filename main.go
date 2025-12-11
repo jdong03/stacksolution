@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/jdong03/stacksolution/action_tree"
 	"github.com/jdong03/stacksolution/game"
@@ -16,7 +17,7 @@ func Run() {
 	fmt.Println("\n===================================")
 
 	// Game configuration
-	numIterations := 50
+	numIterations := 1000
 	boardStr := "2d, 2s, 2c, 2h, 3d"
 	player1Range := []string{"AA", "KK", "QQ"}
 	player2Range := []string{"AA", "KK", "QQ"}
@@ -44,8 +45,17 @@ func Run() {
 	fmt.Printf("Starting pot: %.0f BB\n", startPotSize)
 	fmt.Printf("Stack sizes: %.0f BB\n\n", action_tree.Player1InitialStackSize)
 
-	// Create trainer
+	// Create trainer with metrics tracking
 	trainer := action_tree.NewVanillaCFRTrainer()
+
+	// Set up metrics to track QQ hands - FIRST ACTION ONLY (opening action on river)
+	// Q = rank 12, shown as "Qs", "Qh", "Qd", "Qc"
+	metrics := action_tree.NewTrainingMetrics()
+	metrics.FirstActionOnly = true // Only track opening action, not responses
+	metrics.TrackInfoSet("Qs_Q")   // Track QQ hands (QsQh, QsQd, QsQc)
+	metrics.TrackInfoSet("Qh_Q")   // QhQd, QhQc
+	metrics.TrackInfoSet("Qd_Qc")  // QdQc
+	trainer.Metrics = metrics
 
 	// Train
 	fmt.Println("Training...")
@@ -54,4 +64,23 @@ func Run() {
 	// Display results
 	action_tree.PrintSummary(trainer, avgUtil, numIterations)
 	action_tree.DisplayStrategies(trainer, len(board))
+
+	// Write strategy file (remove old one first)
+	os.Remove("strategies.txt")
+	action_tree.WriteStrategiesToFile(trainer, len(board), numIterations, avgUtil, "strategies.txt")
+
+	// Clean up and recreate data directory for CSV files
+	os.RemoveAll("data")
+	os.MkdirAll("data", 0755)
+
+	// Write CSV files for graphing
+	metrics.WriteExploitabilityCSV("data/exploitability.csv")
+	metrics.WriteBetFrequencyCSV(trainer, "data/bet_frequency.csv")
+	metrics.WriteAllTrackedStrategiesCSV(trainer, "data/strategy")
+
+	fmt.Println("\nCSV files written to data/ directory:")
+	fmt.Println("  - data/exploitability.csv")
+	fmt.Println("  - data/bet_frequency.csv")
+	fmt.Println("  - data/strategy_*.csv (for each tracked info set)")
+	fmt.Println("\nRun 'python3 plot_metrics.py' to generate graphs")
 }

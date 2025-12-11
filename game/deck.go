@@ -11,7 +11,7 @@ type Card struct {
 	Suit string
 }
 
-// String returns a canonical string representation of the card (e.g., "14s" for Ace of Spades)
+// String returns a canonical string representation of the card (e.g., "As" for Ace of Spades)
 func (c Card) String() string {
 	suitChar := map[string]string{
 		"Spades":   "s",
@@ -19,7 +19,20 @@ func (c Card) String() string {
 		"Diamonds": "d",
 		"Clubs":    "c",
 	}
-	return fmt.Sprintf("%d%s", c.Rank, suitChar[c.Suit])
+	rankStr := ""
+	switch c.Rank {
+	case 14:
+		rankStr = "A"
+	case 13:
+		rankStr = "K"
+	case 12:
+		rankStr = "Q"
+	case 11:
+		rankStr = "J"
+	default:
+		rankStr = fmt.Sprintf("%d", c.Rank)
+	}
+	return fmt.Sprintf("%s%s", rankStr, suitChar[c.Suit])
 }
 
 // Deck represents a standard deck of 52 playing cards.

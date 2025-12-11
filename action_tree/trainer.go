@@ -9,17 +9,19 @@ import (
 )
 
 const (
-	Player1InitialStackSize = 100.0
-	Player2InitialStackSize = 100.0
+	Player1InitialStackSize = 50.0
+	Player2InitialStackSize = 50.0
 )
 
 type VanillaCFRTrainer struct {
 	Player1InitialStackSize float64
 	Player2InitialStackSize float64
 	InformationSetMap       map[string]*InformationSet
+	InfoSetActionOptions    map[string][]EnumActionType // Maps info set key -> action options
 	Iteration               int
 	UpdatingPlayer          Player
 	BestResponseUtility     *BestResponseUtility
+	Metrics                 *TrainingMetrics // Optional metrics tracking for graphing
 }
 
 func NewVanillaCFRTrainer() *VanillaCFRTrainer {
@@ -27,6 +29,7 @@ func NewVanillaCFRTrainer() *VanillaCFRTrainer {
 		Player1InitialStackSize: Player1InitialStackSize,
 		Player2InitialStackSize: Player2InitialStackSize,
 		InformationSetMap:       make(map[string]*InformationSet),
+		InfoSetActionOptions:    make(map[string][]EnumActionType),
 		Iteration:               0,
 		UpdatingPlayer:          Player1,
 	}
@@ -60,6 +63,8 @@ func (trainer *VanillaCFRTrainer) GetInformationSet(playerGameStateNode *PlayerN
 		// TODO: Problem with Chance action options, I'm wondering if we need to extend this method to handle chance nodes as well.
 		infoSet = NewInformationSet(len(playerGameStateNode.ActionOptions))
 		trainer.InformationSetMap[key] = infoSet
+		// Store action options for display purposes
+		trainer.InfoSetActionOptions[key] = playerGameStateNode.ActionOptions
 	}
 	return infoSet
 }
@@ -193,10 +198,15 @@ func (trainer *VanillaCFRTrainer) Train(
 			}
 		}
 
-		// Log iteration progress (uncomment when needed)
+		// Log iteration progress
 		fmt.Printf("Iteration %d complete.\n", i)
 		exploitability := trainer.BestResponseUtility.TotalDeviation(board, handCombosP1, handCombosP2)
 		fmt.Printf("Strategy Exploitability: %.6f\n\n", exploitability)
+
+		// Record metrics if tracking is enabled
+		if trainer.Metrics != nil {
+			trainer.Metrics.RecordIteration(trainer, exploitability)
+		}
 	}
 
 	// Return player 1 utility of last iteration
@@ -287,12 +297,8 @@ func (trainer *VanillaCFRTrainer) calculateLeafUtility(node *LeafNode) float64 {
 	gameState := node.GetGameState()
 
 	// Player 1's utility is their stack size change
-	p1Utility := gameState.Player1StackSize - trainer.Player1InitialStackSize
+	return gameState.Player1StackSize - trainer.Player1InitialStackSize
 
-	if node.Winner == Player1 {
-		return p1Utility
-	}
-	return -p1Utility
 }
 
 // calculateChanceUtility averages utility over all possible chance outcomes.

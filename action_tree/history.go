@@ -165,28 +165,34 @@ func GetActionOptionsFromHistory(history *History, stackSize float64, potSize fl
 func getValidRaiseSizes(stackSize float64, potSize float64) []EnumActionType {
 	var validRaises []EnumActionType
 
-	// Calculate bet amounts for each raise size
-	raiseSizes := []struct {
-		actionType EnumActionType
-		percentage float64
-	}{
-		{Raise33, 0.33},
-		{Raise50, 0.50},
-		{Raise75, 0.75},
-		{Raise100, 1.00},
+	// SIMPLIFIED: Only 50% pot raise for faster solving
+	betAmount := potSize * 0.50
+	if betAmount <= stackSize {
+		validRaises = append(validRaises, Raise50)
 	}
 
-	for _, rs := range raiseSizes {
-		betAmount := potSize * rs.percentage
-		if betAmount <= stackSize {
-			validRaises = append(validRaises, rs.actionType)
-		}
-	}
+	// ORIGINAL CODE - multiple raise sizes:
+	// raiseSizes := []struct {
+	// 	actionType EnumActionType
+	// 	percentage float64
+	// }{
+	// 	{Raise33, 0.33},
+	// 	{Raise50, 0.50},
+	// 	{Raise75, 0.75},
+	// 	{Raise100, 1.00},
+	// }
+	//
+	// for _, rs := range raiseSizes {
+	// 	betAmount := potSize * rs.percentage
+	// 	if betAmount <= stackSize {
+	// 		validRaises = append(validRaises, rs.actionType)
+	// 	}
+	// }
 
 	// All-in is always available if player has any chips
-	if stackSize > 0 {
-		validRaises = append(validRaises, RaiseAllIn)
-	}
+	// if stackSize > 0 {
+	// 	validRaises = append(validRaises, RaiseAllIn)
+	// }
 
 	return validRaises
 }
