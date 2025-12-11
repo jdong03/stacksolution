@@ -278,12 +278,11 @@ func (bru *BestResponseUtility) bestResponseValueForPlayer2(node GameStateNode) 
 }
 
 // calculateLeafValue returns P1's utility at a terminal node.
+// Always returns P1's perspective for consistent exploitability measurement.
+// Note: This is different from trainer.calculateLeafUtility which varies by UpdatingPlayer.
 func (bru *BestResponseUtility) calculateLeafValue(node *LeafNode) float64 {
 	gameState := node.GetGameState()
-
-	// Player 1's utility is their stack size change
 	return gameState.Player1StackSize - bru.trainer.Player1InitialStackSize
-
 }
 
 // calculateChanceValue averages utility over all possible chance outcomes.
@@ -311,4 +310,97 @@ func (bru *BestResponseUtility) calculateChanceValue(node *ChanceNode, evalFunc 
 	}
 
 	return nodeUtility
+}
+
+// ComputeAverageP1Utility computes P1's average expected utility under current strategies
+func (bru *BestResponseUtility) ComputeAverageP1Utility(
+	board []game.Card,
+	handCombosP1 [][]game.Card,
+	handCombosP2 [][]game.Card,
+	initialPotSize float64,
+) float64 {
+	var totalUtil float64
+	var count int
+
+	for _, p1Hand := range handCombosP1 {
+		if cardsConflict(p1Hand, board) {
+			continue
+		}
+		for _, p2Hand := range handCombosP2 {
+			if cardsConflict(p2Hand, p1Hand) || cardsConflict(p2Hand, board) {
+				continue
+			}
+			startNode := bru.trainer.createStartingNodeWithBoard(board, p1Hand, p2Hand, initialPotSize)
+			totalUtil += bru.valueUnderCurrentStrategy(startNode)
+			count++
+		}
+	}
+
+	if count == 0 {
+		return 0
+	}
+	return totalUtil / float64(count)
+}
+
+// ComputeAverageP2Utility computes P2's average expected utility under current strategies
+func (bru *BestResponseUtility) ComputeAverageP2Utility(
+	board []game.Card,
+	handCombosP1 [][]game.Card,
+	handCombosP2 [][]game.Card,
+	initialPotSize float64,
+) float64 {
+	var totalUtil float64
+	var count int
+
+	for _, p1Hand := range handCombosP1 {
+		if cardsConflict(p1Hand, board) {
+			continue
+		}
+		for _, p2Hand := range handCombosP2 {
+			if cardsConflict(p2Hand, p1Hand) || cardsConflict(p2Hand, board) {
+				continue
+			}
+			startNode := bru.trainer.createStartingNodeWithBoard(board, p1Hand, p2Hand, initialPotSize)
+			totalUtil += bru.p2ValueUnderCurrentStrategy(startNode)
+			count++
+		}
+	}
+
+	if count == 0 {
+		return 0
+	}
+	return totalUtil / float64(count)
+}
+
+// p2ValueUnderCurrentStrategy returns P2's expected value (not P1's) under current strategies
+func (bru *BestResponseUtility) p2ValueUnderCurrentStrategy(node GameStateNode) float64 {
+	switch n := node.(type) {
+	case *LeafNode:
+		gameState := n.GetGameState()
+		// Return P2's actual utility (stack change)
+		return gameState.Player2StackSize - bru.trainer.Player2InitialStackSize
+
+	case *ChanceNode:
+		return bru.calculateChanceValue(n, bru.p2ValueUnderCurrentStrategy)
+
+	case *PlayerNode:
+		infoSet := bru.trainer.GetInformationSet(n)
+		strategy := GetFinalStrategy(infoSet)
+
+		var nodeValue float64
+		for i, actionType := range n.ActionOptions {
+			actionProb := strategy[i]
+			if actionProb == 0 {
+				continue
+			}
+			action := bru.trainer.createActionForType(actionType, n)
+			childNode := NewGameStateNode(n, action, actionProb)
+			childValue := bru.p2ValueUnderCurrentStrategy(childNode)
+			nodeValue += actionProb * childValue
+		}
+		return nodeValue
+
+	default:
+		panic("Unknown node type in p2ValueUnderCurrentStrategy")
+	}
 }

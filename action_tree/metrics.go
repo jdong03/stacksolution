@@ -13,6 +13,10 @@ type TrainingMetrics struct {
 	// Exploitability per iteration
 	Exploitability []float64
 
+	// Player utilities per iteration
+	P1Utility []float64
+	P2Utility []float64
+
 	// Strategy tracking: map[infoSetKey] -> []iterationData
 	// Each iteration data contains strategy probabilities
 	CurrentStrategyHistory map[string][][]float64
@@ -29,6 +33,8 @@ type TrainingMetrics struct {
 func NewTrainingMetrics() *TrainingMetrics {
 	return &TrainingMetrics{
 		Exploitability:         make([]float64, 0),
+		P1Utility:              make([]float64, 0),
+		P2Utility:              make([]float64, 0),
 		CurrentStrategyHistory: make(map[string][][]float64),
 		AverageStrategyHistory: make(map[string][][]float64),
 		TrackedInfoSets:        make([]string, 0),
@@ -68,8 +74,10 @@ func (m *TrainingMetrics) TrackInfoSet(pattern string) {
 }
 
 // RecordIteration records metrics for one iteration
-func (m *TrainingMetrics) RecordIteration(trainer *VanillaCFRTrainer, exploitability float64) {
+func (m *TrainingMetrics) RecordIteration(trainer *VanillaCFRTrainer, exploitability, p1Utility, p2Utility float64) {
 	m.Exploitability = append(m.Exploitability, exploitability)
+	m.P1Utility = append(m.P1Utility, p1Utility)
+	m.P2Utility = append(m.P2Utility, p2Utility)
 
 	// Record strategies for tracked info sets
 	for key, infoSet := range trainer.InformationSetMap {
@@ -106,7 +114,7 @@ func (m *TrainingMetrics) RecordIteration(trainer *VanillaCFRTrainer, exploitabi
 	}
 }
 
-// WriteExploitabilityCSV writes exploitability data to CSV
+// WriteExploitabilityCSV writes exploitability and utility data to CSV
 func (m *TrainingMetrics) WriteExploitabilityCSV(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -118,17 +126,27 @@ func (m *TrainingMetrics) WriteExploitabilityCSV(filename string) error {
 	defer writer.Flush()
 
 	// Header
-	writer.Write([]string{"iteration", "exploitability"})
+	writer.Write([]string{"iteration", "exploitability", "p1_utility", "p2_utility"})
 
 	// Data
 	for i, exp := range m.Exploitability {
+		p1Util := 0.0
+		p2Util := 0.0
+		if i < len(m.P1Utility) {
+			p1Util = m.P1Utility[i]
+		}
+		if i < len(m.P2Utility) {
+			p2Util = m.P2Utility[i]
+		}
 		writer.Write([]string{
 			strconv.Itoa(i),
 			fmt.Sprintf("%.6f", exp),
+			fmt.Sprintf("%.6f", p1Util),
+			fmt.Sprintf("%.6f", p2Util),
 		})
 	}
 
-	fmt.Printf("Exploitability data written to: %s\n", filename)
+	fmt.Printf("Exploitability and utility data written to: %s\n", filename)
 	return nil
 }
 

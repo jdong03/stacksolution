@@ -45,6 +45,10 @@ func NewLeafNode(parentGameStateNode PlayerNode, action PlayerAction, actionProb
 	}
 
 	hand_winner := determineWinner(gameState, parentGameStateNode.History.ActivePlayer, action)
+
+	// Rake Pot (5% rake)
+	gameState.PotSize *= 0.95
+
 	switch hand_winner {
 	case 1:
 		gameState.Player1StackSize += gameState.PotSize

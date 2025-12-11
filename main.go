@@ -17,7 +17,7 @@ func Run() {
 	fmt.Println("\n===================================")
 
 	// Game configuration
-	numIterations := 1000
+	numIterations := 1001
 	boardStr := "2d, 2s, 2c, 2h, 3d"
 	player1Range := []string{"AA", "KK", "QQ"}
 	player2Range := []string{"AA", "KK", "QQ"}

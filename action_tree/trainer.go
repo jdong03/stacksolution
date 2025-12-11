@@ -156,8 +156,6 @@ func (trainer *VanillaCFRTrainer) Train(
 	initialPotSize float64,
 ) float64 {
 	trainer.Iteration = 0
-	var p1Util float64
-	var utilP1Count int
 
 	for i := 0; i < numberIterations; i++ {
 		trainer.Iteration = i
@@ -167,9 +165,6 @@ func (trainer *VanillaCFRTrainer) Train(
 		} else {
 			trainer.UpdatingPlayer = Player2
 		}
-
-		p1Util = 0
-		utilP1Count = 0
 
 		// Iterate through all possible hand combinations
 		for _, p1Hand := range handCombosP1 {
@@ -192,9 +187,8 @@ func (trainer *VanillaCFRTrainer) Train(
 				// Create starting node with the board and hands
 				startNode := trainer.createStartingNodeWithBoard(board, p1Hand, p2Hand, initialPotSize)
 
-				// Begin the CFR recursion
-				p1Util += trainer.CalculateNodeUtility(startNode)
-				utilP1Count++
+				// Begin the CFR recursion (updates regrets)
+				trainer.CalculateNodeUtility(startNode)
 			}
 		}
 
@@ -205,15 +199,16 @@ func (trainer *VanillaCFRTrainer) Train(
 
 		// Record metrics if tracking is enabled
 		if trainer.Metrics != nil {
-			trainer.Metrics.RecordIteration(trainer, exploitability)
+			// Compute utilities using consistent evaluation (always from each player's perspective)
+			avgP1Util := trainer.BestResponseUtility.ComputeAverageP1Utility(board, handCombosP1, handCombosP2, initialPotSize)
+			avgP2Util := trainer.BestResponseUtility.ComputeAverageP2Utility(board, handCombosP1, handCombosP2, initialPotSize)
+			trainer.Metrics.RecordIteration(trainer, exploitability, avgP1Util, avgP2Util)
 		}
 	}
 
-	// Return player 1 utility of last iteration
-	if utilP1Count == 0 {
-		return 0
-	}
-	return p1Util / float64(utilP1Count)
+	// Return P1's average utility using consistent evaluation
+	// (not from CFR traversal which varies by UpdatingPlayer)
+	return trainer.BestResponseUtility.ComputeAverageP1Utility(board, handCombosP1, handCombosP2, initialPotSize)
 }
 
 // createStartingNodeWithBoard creates a starting PlayerNode with the board cards already dealt.
@@ -296,9 +291,17 @@ func (trainer *VanillaCFRTrainer) CalculateNodeUtility(node GameStateNode) float
 func (trainer *VanillaCFRTrainer) calculateLeafUtility(node *LeafNode) float64 {
 	gameState := node.GetGameState()
 
-	// Player 1's utility is their stack size change
-	return gameState.Player1StackSize - trainer.Player1InitialStackSize
-
+	if trainer.UpdatingPlayer == Player1 {
+		// Player 1's utility is their stack size change
+		return gameState.Player1StackSize - trainer.Player1InitialStackSize
+	} else if trainer.UpdatingPlayer == Player2 {
+		// Player 2's utility is the stack size change
+		// We return the negative utility because Player2's InfoSet training
+		// minimizes utility (negative utility is good)
+		return -(gameState.Player2StackSize - trainer.Player2InitialStackSize)
+	} else {
+		panic("Unexpected updating player in calculateLeafUtility")
+	}
 }
 
 // calculateChanceUtility averages utility over all possible chance outcomes.
