@@ -277,6 +277,37 @@ func (bru *BestResponseUtility) bestResponseValueForPlayer2(node GameStateNode) 
 	}
 }
 
+// ComputeAverageP1Utility computes the average P1 utility across all hand matchups
+// when both players follow their trained strategies.
+func (bru *BestResponseUtility) ComputeAverageP1Utility(
+	board []game.Card,
+	handCombosP1 [][]game.Card,
+	handCombosP2 [][]game.Card,
+	initialPotSize float64,
+) float64 {
+	var totalUtil float64
+	var count int
+
+	for _, p1Hand := range handCombosP1 {
+		if cardsConflict(p1Hand, board) {
+			continue
+		}
+		for _, p2Hand := range handCombosP2 {
+			if cardsConflict(p2Hand, p1Hand) || cardsConflict(p2Hand, board) {
+				continue
+			}
+			startNode := bru.trainer.createStartingNodeWithBoard(board, p1Hand, p2Hand, initialPotSize)
+			totalUtil += bru.valueUnderCurrentStrategy(startNode)
+			count++
+		}
+	}
+
+	if count == 0 {
+		return 0
+	}
+	return totalUtil / float64(count)
+}
+
 // calculateLeafValue returns P1's utility at a terminal node.
 func (bru *BestResponseUtility) calculateLeafValue(node *LeafNode) float64 {
 	gameState := node.GetGameState()

@@ -65,6 +65,12 @@ func Run() {
 	action_tree.PrintSummary(trainer, avgUtil, numIterations)
 	action_tree.DisplayStrategies(trainer, len(board))
 
+	// Display P1 first action strategies for all hands
+	action_tree.DisplayFirstActionStrategies(trainer)
+
+	// Compare solver strategy against simple heuristic
+	action_tree.EvaluateVsHeuristic(trainer, board, p1Combos, p2Combos, startPotSize, action_tree.SimpleHeuristic())
+
 	// Write strategy file (remove old one first)
 	os.Remove("strategies.txt")
 	action_tree.WriteStrategiesToFile(trainer, len(board), numIterations, avgUtil, "strategies.txt")

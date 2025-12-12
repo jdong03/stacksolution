@@ -1,4 +1,4 @@
-iteration,current_bet_freq_QsQc,average_bet_freq_QsQc,current_bet_freq_QsQd,average_bet_freq_QsQd,current_bet_freq_QsQh,average_bet_freq_QsQh,current_bet_freq_QhQc,average_bet_freq_QhQc,current_bet_freq_QhQd,average_bet_freq_QhQd,current_bet_freq_QdQc,average_bet_freq_QdQc
+iteration,current_bet_freq_QdQc,average_bet_freq_QdQc,current_bet_freq_QsQh,average_bet_freq_QsQh,current_bet_freq_QsQc,average_bet_freq_QsQc,current_bet_freq_QhQd,average_bet_freq_QhQd,current_bet_freq_QhQc,average_bet_freq_QhQc,current_bet_freq_QsQd,average_bet_freq_QsQd
 0,1.000000,0.961538,1.000000,0.961538,1.000000,0.961538,1.000000,0.961538,1.000000,0.961538,1.000000,0.961538
 1,1.000000,0.961538,1.000000,0.961538,1.000000,0.961538,1.000000,0.961538,1.000000,0.961538,1.000000,0.961538
 2,0.000000,0.783654,0.000000,0.783654,0.000000,0.783654,0.000000,0.783654,0.000000,0.783654,0.000000,0.783654
