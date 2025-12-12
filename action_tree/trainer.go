@@ -297,7 +297,7 @@ func (trainer *VanillaCFRTrainer) calculateLeafUtility(node *LeafNode) float64 {
 	gameState := node.GetGameState()
 
 	// Player 1's utility is their stack size change
-	return gameState.Player1StackSize - trainer.Player1InitialStackSize
+	return gameState.Player1StackSize - (trainer.Player1InitialStackSize + 25.0)
 
 }
 
