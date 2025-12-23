@@ -68,8 +68,17 @@ func Run() {
 	// Display P1 first action strategies for all hands
 	action_tree.DisplayFirstActionStrategies(trainer)
 
+	// Display P2 response strategies
+	action_tree.DisplayP2ResponseStrategies(trainer)
+
+	// Display P1 response to P2 bet (after P1 checked)
+	action_tree.DisplayP1ResponseToP2Bet(trainer)
+
 	// Compare solver strategy against simple heuristic
 	action_tree.EvaluateVsHeuristic(trainer, board, p1Combos, p2Combos, startPotSize, action_tree.SimpleHeuristic())
+
+	// Calculate EV vs aggressive and passive P2 heuristics using Law of Total Expectation
+	action_tree.CalculateEVvsHeuristics()
 
 	// Write strategy file (remove old one first)
 	os.Remove("strategies.txt")
