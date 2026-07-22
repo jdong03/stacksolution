@@ -95,8 +95,9 @@ magnitude matter more than exact figures — definitions and iteration counts va
 
 ## Current status
 
-- [ ] Phase 0 — verification loop
-- [ ] Phase 1 — Kuhn + CFR + exploitability calculator
+- [x] Phase 0 — verification loop (`go build/test ./...` green; whole suite
+  passes)
+- [x] Phase 1 — Kuhn + CFR + exploitability calculator
 - [ ] Phase 2 — Leduc
 - [ ] Phase 3 — faster variants (CFR+, discounted, MCCFR)
 - [ ] Phase 4 — abstraction + simplified hold'em spot
@@ -104,3 +105,17 @@ magnitude matter more than exact figures — definitions and iteration counts va
 
 _Update this checklist and add short notes (dates, exploitability numbers hit,
 decisions made) as phases complete._
+
+**2026-07-22 — Phase 1 done (standalone `kuhn/` package).** Built Kuhn poker,
+vanilla CFR, and an independent best-response exploitability oracle, fully
+decoupled from `action_tree/` (Option A). All three checkpoints hit and locked
+in by `kuhn/kuhn_test.go`: exactly **12 information sets**; **exploitability
+0.0011** after 200k iterations (target < 0.01); game value to P1 **-0.0538 vs
+-1/18 ≈ -0.0556**. Learned strategies match Kuhn's known one-parameter
+equilibrium family. Note for later: the first cut of the exploitability oracle
+had the classic imperfect-information bug — it maximized per full deal, letting
+the "best responder" see the opponent's card — which read ~0.28 exploitability
+against an already-correct trainer. Fixed with belief-propagation backward
+induction that commits to one action per info set. Lesson: an eval bug looks
+exactly like a solver bug; the giveaway was that the *game value* had already
+converged to -1/18 while exploitability hadn't.
