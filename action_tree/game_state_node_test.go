@@ -316,14 +316,17 @@ func TestNewGameStateNode_PlayerToLeaf_Fold(t *testing.T) {
 func TestNewGameStateNode_PlayerToLeaf_RiverCall(t *testing.T) {
 	// Test river call -> LeafNode
 	// Create a node on the river where Player2 faces a raise
+	// Disconnected rainbow board (no straight/flush available to either hand) so
+	// P1's pocket aces unambiguously beat P2's pocket kings at showdown - see
+	// note below on why the board composition matters for the stack assertion.
 	h := NewHistory()
 	h.FlopCards = []game.Card{
-		{Rank: 14, Suit: "Hearts"},
-		{Rank: 13, Suit: "Hearts"},
-		{Rank: 12, Suit: "Hearts"},
+		{Rank: 2, Suit: "Hearts"},
+		{Rank: 7, Suit: "Diamonds"},
+		{Rank: 9, Suit: "Clubs"},
 	}
-	h.TurnCard = []game.Card{{Rank: 11, Suit: "Hearts"}}
-	h.RiverCard = []game.Card{{Rank: 10, Suit: "Hearts"}}
+	h.TurnCard = []game.Card{{Rank: 3, Suit: "Spades"}}
+	h.RiverCard = []game.Card{{Rank: 4, Suit: "Hearts"}}
 	h.RiverActions = []PlayerAction{{ActionType: Raise50, Amount: 20}}
 	h.ActivePlayer = Player2
 
@@ -554,16 +557,22 @@ func TestNewGameStateNode_CompleteGameFlow(t *testing.T) {
 
 func TestNewGameStateNode_RiverCheckByPlayer2(t *testing.T) {
 	// Test transition from PlayerNode to LeafNode on river check by Player2
+	//
+	// Disconnected rainbow board (no straight/flush available to either hand):
+	// the original fixture used A-K-Q-J-T across the board, which is itself a
+	// straight that beats either player's trips made from their pocket pair -
+	// making this a chop regardless of hole cards, not the "P1 trips beat P2
+	// trips" showdown the test intended.
 	h := NewHistory()
 	h.FlopCards = []game.Card{
-		{Rank: 14, Suit: "Hearts"},
-		{Rank: 13, Suit: "Hearts"},
-		{Rank: 12, Suit: "Hearts"},
+		{Rank: 2, Suit: "Hearts"},
+		{Rank: 7, Suit: "Diamonds"},
+		{Rank: 9, Suit: "Clubs"},
 	}
 	h.FlopActions = []PlayerAction{{ActionType: Check, Amount: 0}, {ActionType: Check, Amount: 0}}
-	h.TurnCard = []game.Card{{Rank: 11, Suit: "Clubs"}}
+	h.TurnCard = []game.Card{{Rank: 3, Suit: "Spades"}}
 	h.TurnActions = []PlayerAction{{ActionType: Check, Amount: 0}, {ActionType: Check, Amount: 0}}
-	h.RiverCard = []game.Card{{Rank: 10, Suit: "Diamonds"}}
+	h.RiverCard = []game.Card{{Rank: 4, Suit: "Hearts"}}
 	h.RiverActions = []PlayerAction{{ActionType: Check, Amount: 0}}
 	h.ActivePlayer = Player2
 
@@ -598,8 +607,8 @@ func TestNewGameStateNode_RiverCheckByPlayer2(t *testing.T) {
 		t.Errorf("Expected Leaf after river check by Player2, got %v", gameState.History.ActivePlayer)
 	}
 
-	// P1 has As,Ac (pocket aces) vs P2's Ks,Kc (pocket kings)
-	// Board: Ah,Kh,Qh,Jc,Td - P1 has trip aces, P2 has trip kings
+	// P1 has As,Ac (pocket aces) vs P2's Ks,Kc (pocket kings) on a disconnected
+	// rainbow board - P1's pair of aces beats P2's pair of kings outright.
 	// P1 wins and gets the pot (20.0)
 	expectedP1Stack := 100.0 + 20.0 // Winner gets pot
 	expectedP2Stack := 100.0        // Loser keeps remaining (no bets in check-check)

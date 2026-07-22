@@ -552,19 +552,21 @@ func TestGetCurrentStreetActions(t *testing.T) {
 	}
 }
 
+// getValidRaiseSizes (history.go) is currently hard-limited to a single 50%-pot
+// raise size - the original multi-size menu (33/50/75/100% + always-available
+// all-in) is commented out there as a deliberate "faster solving" simplification.
+// These subtests assert the game's actual current action space, not the fuller
+// menu the code is structured to support later.
 func TestValidRaiseSizes(t *testing.T) {
-	t.Run("All raises available with large stack", func(t *testing.T) {
-		// Pot=100, Stack=1000 -> all raises affordable
-		// 33% = 33, 50% = 50, 75% = 75, 100% = 100, all < 1000
+	t.Run("Only 50% pot raise offered when affordable", func(t *testing.T) {
+		// Pot=100, Stack=1000 -> 50% = 50, affordable
 		h := createFlopHistory()
 		h.ActivePlayer = Player1
 		options := GetActionOptionsFromHistory(h, 1000, 100)
 
-		// Should have: Check, Raise33, Raise50, Raise75, Raise100, RaiseAllIn
 		if options[0] != Check {
 			t.Errorf("Expected Check first, got %v", options[0])
 		}
-		// Check that all raise types are present
 		hasRaise33 := false
 		hasRaise50 := false
 		hasRaise75 := false
@@ -584,59 +586,35 @@ func TestValidRaiseSizes(t *testing.T) {
 				hasRaiseAllIn = true
 			}
 		}
-		if !hasRaise33 || !hasRaise50 || !hasRaise75 || !hasRaise100 || !hasRaiseAllIn {
-			t.Errorf("Expected all raise sizes available, got %v", options)
+		if !hasRaise50 {
+			t.Errorf("Expected Raise50 to be available, got %v", options)
+		}
+		if hasRaise33 || hasRaise75 || hasRaise100 || hasRaiseAllIn {
+			t.Errorf("Only Raise50 should be offered under the current simplification, got %v", options)
 		}
 	})
 
-	t.Run("Limited raises with small stack", func(t *testing.T) {
-		// Pot=100, Stack=40
-		// 33% = 33 (affordable), 50% = 50 (not affordable), 75% = 75 (not), 100% = 100 (not)
+	t.Run("No raise offered when 50% pot exceeds stack", func(t *testing.T) {
+		// Pot=100, Stack=40 -> 50% = 50, not affordable, and RaiseAllIn is
+		// currently commented out, so no raise option is generated at all.
 		h := createFlopHistory()
 		h.ActivePlayer = Player1
 		options := GetActionOptionsFromHistory(h, 40, 100)
 
-		// Should have: Check, Raise33, RaiseAllIn
-		hasRaise33 := false
-		hasRaise50 := false
-		hasRaiseAllIn := false
-		for _, opt := range options {
-			switch opt {
-			case Raise33:
-				hasRaise33 = true
-			case Raise50:
-				hasRaise50 = true
-			case RaiseAllIn:
-				hasRaiseAllIn = true
-			}
-		}
-		if !hasRaise33 {
-			t.Errorf("Expected Raise33 to be available (33 <= 40)")
-		}
-		if hasRaise50 {
-			t.Errorf("Raise50 should NOT be available (50 > 40)")
-		}
-		if !hasRaiseAllIn {
-			t.Errorf("RaiseAllIn should always be available")
+		if len(options) != 1 || options[0] != Check {
+			t.Errorf("Expected only [Check] when 50%% pot exceeds stack, got %v", options)
 		}
 	})
 
-	t.Run("Only all-in when stack is tiny", func(t *testing.T) {
-		// Pot=100, Stack=10
-		// 33% = 33 > 10, so only RaiseAllIn available
+	t.Run("No raise offered when stack is tiny", func(t *testing.T) {
+		// Pot=100, Stack=10 -> same reasoning as above; RaiseAllIn is not
+		// currently reachable via getValidRaiseSizes regardless of stack size.
 		h := createFlopHistory()
 		h.ActivePlayer = Player1
 		options := GetActionOptionsFromHistory(h, 10, 100)
 
-		// Should have: Check, RaiseAllIn
-		if len(options) != 2 {
-			t.Errorf("Expected 2 options (Check, RaiseAllIn), got %v", options)
-		}
-		if options[0] != Check {
-			t.Errorf("Expected Check, got %v", options[0])
-		}
-		if options[1] != RaiseAllIn {
-			t.Errorf("Expected RaiseAllIn, got %v", options[1])
+		if len(options) != 1 || options[0] != Check {
+			t.Errorf("Expected only [Check], got %v", options)
 		}
 	})
 
@@ -666,28 +644,27 @@ func TestValidRaiseSizes(t *testing.T) {
 	t.Run("Raise options after call based on remaining stack", func(t *testing.T) {
 		// Pot=100, facing raise of 50, stack=200
 		// After calling 50: stackAfterCall=150, potAfterCall=150
-		// 33% of 150 = 49.5 (affordable), 50% = 75, 75% = 112.5, 100% = 150 (exactly affordable)
+		// 50% of 150 = 75, affordable
 		h := createFlopHistory()
 		h.FlopActions = []PlayerAction{{ActionType: Raise50, Amount: 50}}
 		h.ActivePlayer = Player2
 		options := GetActionOptionsFromHistory(h, 200, 100)
 
-		// Should have: Call, Raise33, Raise50, Raise75, Raise100, RaiseAllIn, Fold
+		// Should have: Call, Raise50, Fold
 		if options[0] != Call {
 			t.Errorf("Expected Call first, got %v", options[0])
 		}
 		if options[len(options)-1] != Fold {
 			t.Errorf("Expected Fold last, got %v", options[len(options)-1])
 		}
-		// All raises should be available since 150 stack covers all pot% bets
-		hasRaise100 := false
+		hasRaise50 := false
 		for _, opt := range options {
-			if opt == Raise100 {
-				hasRaise100 = true
+			if opt == Raise50 {
+				hasRaise50 = true
 			}
 		}
-		if !hasRaise100 {
-			t.Errorf("Expected Raise100 to be available, got %v", options)
+		if !hasRaise50 {
+			t.Errorf("Expected Raise50 to be available, got %v", options)
 		}
 	})
 }
