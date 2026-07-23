@@ -69,6 +69,7 @@ func NewPlayerNode(parentGameStateNode GameStateNode, action Action, actionProba
 		Player1ReachProbability: player1ReachProbability,
 		Player2ReachProbability: player2ReachProbability,
 		PotSize:                 parentGameState.PotSize,
+		InitialPotSize:          parentGameState.InitialPotSize,
 	}
 
 	actionOptions := GetActionOptionsFromHistory(newHistory, stackSize, gameState.PotSize)

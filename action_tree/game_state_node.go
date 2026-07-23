@@ -22,6 +22,11 @@ type GameState struct {
 	Player1ReachProbability float64
 	Player2ReachProbability float64
 	PotSize                 float64
+	// InitialPotSize is the pot size at the start of this hand (before any
+	// betting), fixed for the whole tree. Terminal-value calculations need
+	// this to know each player's actual ante/pot contribution - see
+	// leafUtility in leaf_node.go, the single source of truth for it.
+	InitialPotSize float64
 }
 
 /*
@@ -43,6 +48,7 @@ func GetStartingNode(player1Cards []game.Card, player2Cards []game.Card, initial
 			Player1ReachProbability: 1.0,
 			Player2ReachProbability: 1.0,
 			PotSize:                 initialPotSize,
+			InitialPotSize:          initialPotSize,
 		},
 		ActionOptions: actionOptions,
 	}

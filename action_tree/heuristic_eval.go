@@ -602,8 +602,7 @@ func computeEV(
 func evalNode(trainer *VanillaCFRTrainer, node GameStateNode, heuristic *HeuristicStrategy, p1UsesSolver bool) float64 {
 	switch n := node.(type) {
 	case *LeafNode:
-		gameState := n.GetGameState()
-		return gameState.Player1StackSize - trainer.Player1InitialStackSize
+		return leafUtility(n.GetGameState(), trainer.Player1InitialStackSize)
 
 	case *ChanceNode:
 		availableCards := n.AvailableCards

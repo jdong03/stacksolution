@@ -310,11 +310,7 @@ func (bru *BestResponseUtility) ComputeAverageP1Utility(
 
 // calculateLeafValue returns P1's utility at a terminal node.
 func (bru *BestResponseUtility) calculateLeafValue(node *LeafNode) float64 {
-	gameState := node.GetGameState()
-
-	// Player 1's utility is their stack size change
-	return gameState.Player1StackSize - (bru.trainer.Player1InitialStackSize + 25.0)
-
+	return leafUtility(node.GetGameState(), bru.trainer.Player1InitialStackSize)
 }
 
 // calculateChanceValue averages utility over all possible chance outcomes.

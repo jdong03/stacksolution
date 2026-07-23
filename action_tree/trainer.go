@@ -251,6 +251,7 @@ func (trainer *VanillaCFRTrainer) createStartingNodeWithBoard(
 			Player1ReachProbability: 1.0,
 			Player2ReachProbability: 1.0,
 			PotSize:                 initialPotSize,
+			InitialPotSize:          initialPotSize,
 		},
 		ActionOptions: actionOptions,
 	}
@@ -294,11 +295,7 @@ func (trainer *VanillaCFRTrainer) CalculateNodeUtility(node GameStateNode) float
 // calculateLeafUtility returns the utility for Player 1 at a terminal node.
 // Utility is measured as P1's profit/loss from this hand.
 func (trainer *VanillaCFRTrainer) calculateLeafUtility(node *LeafNode) float64 {
-	gameState := node.GetGameState()
-
-	// Player 1's utility is their stack size change
-	return gameState.Player1StackSize - (trainer.Player1InitialStackSize + 25.0)
-
+	return leafUtility(node.GetGameState(), trainer.Player1InitialStackSize)
 }
 
 // calculateChanceUtility averages utility over all possible chance outcomes.

@@ -42,6 +42,7 @@ func NewChanceNode(parentGameStateNode PlayerNode, action PlayerAction, actionPr
 		Player1ReachProbability: player1ReachProbability,
 		Player2ReachProbability: player2ReachProbability,
 		PotSize:                 potSize,
+		InitialPotSize:          parentGameStateNode.InitialPotSize,
 	}
 
 	availableCards := determineAvailableCards(gameState)

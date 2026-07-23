@@ -42,6 +42,7 @@ func NewLeafNode(parentGameStateNode PlayerNode, action PlayerAction, actionProb
 		Player1ReachProbability: player1ReachProbability,
 		Player2ReachProbability: player2ReachProbability,
 		PotSize:                 potSize,
+		InitialPotSize:          parentGameStateNode.InitialPotSize,
 	}
 
 	hand_winner := determineWinner(gameState, parentGameStateNode.History.ActivePlayer, action)
@@ -59,6 +60,18 @@ func NewLeafNode(parentGameStateNode PlayerNode, action PlayerAction, actionProb
 	return &LeafNode{
 		GameState: gameState,
 	}
+}
+
+// leafUtility returns Player 1's net profit/loss for the hand at a terminal
+// node's game state: the change in P1's stack size, netted against P1's own
+// share of the pot that already existed before the tree started (both
+// players are assumed to have funded InitialPotSize equally). This is the
+// single source of truth for terminal-value calculations - previously this
+// formula was independently duplicated (and had already drifted) across
+// trainer.go's calculateLeafUtility, best_response_utility.go's
+// calculateLeafValue, and heuristic_eval.go's evalNode leaf case.
+func leafUtility(gameState GameState, player1InitialStackSize float64) float64 {
+	return gameState.Player1StackSize - (player1InitialStackSize + gameState.InitialPotSize/2)
 }
 
 // TODO: How does it work if all in on flop? Worry about later
